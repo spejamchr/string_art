@@ -1,0 +1,9 @@
+[package]
+name = "strings"
+version = "0.1.0"
+authors = ["Spencer Christiansen <jc.spencer92@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
