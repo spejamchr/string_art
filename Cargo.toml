@@ -7,3 +7,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+image = "0.23"
+threadpool = "1.7"
+rand = "0.6"
+clap = "2.33"
+rayon = "1.5.0"
