@@ -14,26 +14,35 @@ use std::collections::HashMap;
 fn main() -> Result<(), std::io::Error> {
     let matches = App::new("strings")
         .version("0.1.0")
-        .about("Transform a .png into string art")
+        .about("Transform an image into string art")
         .arg(
             Arg::with_name("image_filepath")
                 .value_name("IMAGE_FILEPATH")
                 .takes_value(true)
                 .required(true)
-                .help("path to the image that will be rendered with strings"),
+                .help("Path to the image that will be rendered with strings"),
         )
         .arg(
             Arg::with_name("output_filepath")
-                .value_name("OUTPUT_FILEPATH")
+                .value_name("FILEPATH")
                 .short("o")
-                .long("output_filepath")
+                .long("output-filepath")
                 .takes_value(true)
-                .help("location to save generated string image"),
+                .help("Location to save generated string image"),
+        )
+        .arg(
+            Arg::with_name("draw_pins_path")
+                .value_name("FILEPATH")
+                .short("d")
+                .long("draw-pins")
+                .takes_value(true)
+                .help("Location to save image of pin locations"),
         )
         .arg(
             Arg::with_name("max_strings")
+                .value_name("INTEGER")
                 .short("m")
-                .long("max_strings")
+                .long("max-strings")
                 .takes_value(true)
                 .validator(|f| {
                     f.parse::<usize>()
@@ -44,51 +53,69 @@ fn main() -> Result<(), std::io::Error> {
         )
         .arg(
             Arg::with_name("step_size")
-            .short("s")
-            .long("step_size")
-            .takes_value(true)
-            .default_value("1")
-            .validator(|f| {
-                    f.parse::<f64>()
-                        .map(|_| ())
-                        .map_err(|e| format!("{:?}", e))
-            })
-            .help("Used when calculating a string's antialiasing. Smaller values -> finer antialiasing")
+                .value_name("FLOAT")
+                .short("s")
+                .long("step-size")
+                .takes_value(true)
+                .default_value("1")
+                .validator(|f| {
+                        f.parse::<f64>()
+                            .map(|_| ())
+                            .map_err(|e| format!("{:?}", e))
+                })
+                .help("Used when calculating a string's antialiasing. Smaller values -> finer antialiasing")
         )
         .arg(
             Arg::with_name("string_alpha")
-            .short("a")
-            .long("string_alpha")
-            .takes_value(true)
-            .default_value("1")
-            .validator(|f| {
-                    f.parse::<f64>()
-                        .map(|_| ())
-                        .map_err(|e| format!("{:?}", e))
-            })
-            .help("How opaque each string is: 1 is entirely opaque.")
+                .value_name("FLOAT")
+                .short("a")
+                .long("string-alpha")
+                .takes_value(true)
+                .default_value("1")
+                .validator(|f| {
+                        f.parse::<f64>()
+                            .map_err(|e| format!("{:?}", e))
+                            .and_then(|i|
+                                if i > 0.0 && i <= 1.0 {
+                                    Ok(i)
+                                } else {
+                                    Err(format!("{} is outside the range (0, 1]", i))
+                                }
+                            )
+                            .map(|_| ())
+                })
+                .help("How opaque each string is: 1 is entirely opaque.")
         )
         .arg(
             Arg::with_name("pin_count")
-            .short("p")
-            .long("pin_count")
-            .takes_value(true)
-            .default_value("200")
-            .validator(|f| {
-                    f.parse::<u32>()
-                        .map(|_| ())
-                        .map_err(|e| format!("{:?}", e))
-            })
-            .help("How many pins should be used in creating the image (approximately)")
+                .value_name("INTEGER")
+                .short("c")
+                .long("pin-count")
+                .takes_value(true)
+                .default_value("200")
+                .validator(|f| {
+                        f.parse::<u32>()
+                            .map(|_| ())
+                            .map_err(|e| format!("{:?}", e))
+                })
+                .help("How many pins should be used in creating the image (approximately)")
         )
         .arg(
             Arg::with_name("pin_arrangement")
-            .short("r")
-            .long("pin_arrangement")
-            .takes_value(true)
-            .possible_values(&["perimeter", "grid", "circle", "random"])
-            .default_value("perimeter")
-            .help("Should the pins be arranged on the image's perimeter, or in a grid across the entire image, or in the largest possible centered circle, or scattered randomly?")
+                .value_name("ARRANGEMENT")
+                .short("r")
+                .long("pin-arrangement")
+                .takes_value(true)
+                .possible_values(&["perimeter", "grid", "circle", "random"])
+                .default_value("perimeter")
+                .help("Should the pins be arranged on the image's perimeter, or in a grid across the entire image, or in the largest possible centered circle, or scattered randomly?")
+        )
+        .arg(
+            Arg::with_name("verbose")
+                .short("v")
+                .long("verbose")
+                .multiple(true)
+                .help("Output debugging messages")
         )
         .get_matches();
 
@@ -97,6 +124,8 @@ fn main() -> Result<(), std::io::Error> {
         .expect("The image_filepath is a required arg");
 
     let output_filepath = matches.value_of("output_filepath");
+
+    let draw_pins_path = matches.value_of("draw_pins_path");
 
     let max_strings = matches
         .value_of("max_strings")
@@ -126,6 +155,35 @@ fn main() -> Result<(), std::io::Error> {
         .value_of("pin_arrangement")
         .expect("There is a default");
 
+    let verbosity = matches.occurrences_of("verbose");
+
+    if verbosity > 1 {
+        if let Some(filepath) = output_filepath {
+            println!("Received output_filepath: {}", filepath);
+        }
+        if let Some(filepath) = draw_pins_path {
+            println!("Received draw_pins_path: {}", filepath);
+        }
+        if matches.is_present("max_strings") {
+            println!("Received max_strings: {}", max_strings);
+        }
+        if matches.is_present("step_size") {
+            println!("Received step_size: {}", step_size);
+        }
+        if matches.is_present("string_alpha") {
+            println!("Received string_alpha: {}", string_alpha);
+        }
+        if matches.is_present("pin_count") {
+            println!("Received pin_count: {}", pin_count);
+        }
+        if matches.is_present("pin_arrangement") {
+            println!("Received pin_arrangement: {}", pin_arrangement);
+        }
+        if matches.is_present("verbose") {
+            println!("Received verbose: {}", verbosity);
+        }
+    }
+
     let image = ImageReader::open(image_filepath)?
         .decode()
         .expect("Corrupted file");
@@ -138,6 +196,8 @@ fn main() -> Result<(), std::io::Error> {
         pin_count,
         pin_arrangement,
         output_filepath,
+        draw_pins_path,
+        verbosity,
     );
 
     Ok(())
@@ -299,13 +359,14 @@ impl RefImage {
         self.0.iter().flatten().map(|p| p * p).sum() // Seems to be worse?
     }
 
-    fn add_line<T: Into<PixLine>>(&mut self, line: T) -> &mut Self {
+    fn subtract_line<T: Into<PixLine>>(&mut self, line: T) -> &mut Self {
         *self -= line;
         self
     }
 
-    fn remove_line<T: Into<PixLine>>(&mut self, line: T) {
+    fn add_line<T: Into<PixLine>>(&mut self, line: T) -> &mut Self {
         *self += line;
+        self
     }
 
     fn width(&self) -> u32 {
@@ -423,6 +484,8 @@ fn create_string(
     pins: u32,
     pin_arrangement: &str,
     output_filepath: Option<&str>,
+    draw_pins_path: Option<&str>,
+    verbosity: u64,
 ) {
     let height = image.height();
     let width = image.width();
@@ -432,8 +495,10 @@ fn create_string(
         .enumerate_pixels()
         .for_each(|(x, y, p)| ref_image[(x, y)] = p[0].into());
 
-    let initial_score = ref_image.score();
-    println!("Initial score: {}", initial_score);
+    if verbosity > 1 {
+        let initial_score = ref_image.score();
+        println!("Initial score: {}", initial_score);
+    }
 
     ref_image
         .grayscale()
@@ -448,6 +513,17 @@ fn create_string(
         a => panic!("That's not a valid pin arrangement: {}", a),
     };
 
+    if let Some(filepath) = draw_pins_path {
+        pins.iter()
+            .fold(&mut RefImage::new(width, height), |i, p| {
+                i[p] = u8::MAX as i64;
+                i
+            })
+            .grayscale()
+            .save(filepath)
+            .unwrap();
+    }
+
     let mut pin_order: Vec<(Point, Point)> = Vec::new();
     let mut keep_adding = true;
     let mut keep_removing = true;
@@ -456,16 +532,21 @@ fn create_string(
         while keep_adding {
             match find_best_points(&pins, &ref_image, step_size, string_alpha) {
                 Some(((a, b), s)) => {
-                    ref_image.add_line(((a, b), step_size, string_alpha));
+                    // The ref_image is a hypothetical perfectly-string-drawn image, and this is
+                    // trying to figure out which strings are in the image. So every time it
+                    // chooses a string here, the string is removed from the ref_image.
+                    ref_image.subtract_line(((a, b), step_size, string_alpha));
                     pin_order.push((a, b));
                     keep_removing = true;
-                    println!(
-                        "[{:>6}]:   score change: {:>10}     added  {} to {}",
-                        pin_order.len(),
-                        s,
-                        a,
-                        b
-                    );
+                    if verbosity > 0 {
+                        println!(
+                            "[{:>6}]:   score change: {:>10}     added  {} to {}",
+                            pin_order.len(),
+                            s,
+                            a,
+                            b
+                        );
+                    }
                 }
                 None => keep_adding = false,
             }
@@ -479,15 +560,20 @@ fn create_string(
             match find_worst_points(&pin_order, &ref_image, step_size, string_alpha) {
                 Some((i, s)) => {
                     let (a, b) = pin_order.remove(i);
-                    ref_image.remove_line(((a, b), step_size, string_alpha));
+                    // The ref_image is a hypothetical perfectly-string-drawn image, and this is
+                    // trying to figure out which strings are missing from the image. So every time
+                    // it chooses a string here, the string is added back into the ref_image.
+                    ref_image.add_line(((a, b), step_size, string_alpha));
                     keep_adding = true;
-                    println!(
-                        "[{:>6}]:   score change: {:>10}    removed {} to {}",
-                        pin_order.len(),
-                        s,
-                        a,
-                        b
-                    );
+                    if verbosity > 0 {
+                        println!(
+                            "[{:>6}]:   score change: {:>10}    removed {} to {}",
+                            pin_order.len(),
+                            s,
+                            a,
+                            b
+                        );
+                    }
                 }
                 None => keep_removing = false,
             }
@@ -498,9 +584,13 @@ fn create_string(
         }
     }
 
-    let final_score = ref_image.score();
-    println!("Final score  : {}", final_score);
-    println!("Saving image...");
+    if verbosity > 1 {
+        let final_score = ref_image.score();
+        println!("Final score  : {}", final_score);
+    }
+    if verbosity > 0 {
+        println!("Saving image...");
+    }
 
     ref_image
         .grayscale()
@@ -518,7 +608,9 @@ fn create_string(
             .unwrap();
     }
 
-    println!("Image saved!")
+    if verbosity > 0 {
+        println!("Image saved!")
+    }
 }
 
 /// The change in a RefImage's score when adding a Line
@@ -608,10 +700,10 @@ fn generate_pins_circle(desired_count: u32, width: u32, height: u32) -> Vec<Poin
     let radius = f64::min(center_x, center_y);
     let step_size = std::f64::consts::PI * 2.0 / desired_count as f64;
     (0..desired_count)
-        .map(|a| {
+        .map(|step| {
             Point::new(
-                (radius * (a as f64 * step_size).cos().round()) as u32,
-                (radius * (a as f64 * step_size).sin().round()) as u32,
+                ((radius * (step as f64 * step_size).cos()).round() + center_x) as u32,
+                ((radius * (step as f64 * step_size).sin()).round() + center_y) as u32,
             )
         })
         .collect()
