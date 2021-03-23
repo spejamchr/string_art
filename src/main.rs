@@ -600,10 +600,12 @@ fn create_string(image: image::DynamicImage, args: Args) -> Data {
         println!("Initial score: {}", initial_score);
     }
 
-    ref_image
-        .grayscale()
-        .save("initial_reference_image.png")
-        .unwrap();
+    if args.verbosity > 2 {
+        ref_image
+            .grayscale()
+            .save("initial_reference_image.png")
+            .unwrap();
+    }
 
     let pins = match args.pin_arrangement {
         "perimeter" => generate_pins_perimeter(args.pin_count, width, height),
@@ -692,10 +694,12 @@ fn create_string(image: image::DynamicImage, args: Args) -> Data {
         println!("Saving image...");
     }
 
-    ref_image
-        .grayscale()
-        .save("final_reference_image.png")
-        .unwrap();
+    if args.verbosity > 2 {
+        ref_image
+            .grayscale()
+            .save("final_reference_image.png")
+            .unwrap();
+    }
 
     if let Some(filepath) = args.output_filepath {
         pin_order
