@@ -22,12 +22,13 @@ ARRANGEMENTS = %w[
 ].freeze
 
 STORE = {
-  output_filepath: make_store('--output-filepath', 'output.png', nil),
-  pin_arrangement: make_store('--pin-arrangement', 'circle', nil),
-  max_strings: make_store('--max-strings', 50, 2.5),
-  pin_count: make_store('--pin-count', 20, 2.5),
-  step_size: make_store('--step-size', 1.0, 0.6),
-  string_alpha: make_store('--string-alpha', 1.0, 0.6),
+  output_filepath: make_store('--output-filepath', nil, nil),
+  data_filepath: make_store('--data-filepath', nil, nil),
+  pin_arrangement: make_store('--pin-arrangement', nil, nil),
+  max_strings: make_store('--max-strings', 300, 1.15),
+  pin_count: make_store('--pin-count', 80, 1.15),
+  step_size: make_store('--step-size', 1.0, 0.88),
+  string_alpha: make_store('--string-alpha', 1.0, 0.88),
 }.freeze
 
 class Monotonic
@@ -61,14 +62,19 @@ def output_filename(img, opts)
     c: opts[:pin_count],
     s: opts[:step_size],
     a: opts[:string_alpha],
-  }.map { |k, v| "#{k}=#{v}" }.join('_') + File.basename(img)
+  }.map { |k, v| "#{k}=#{v}" }.join('_') + '_' + File.basename(img, '.*')
+end
+
+def id_filepath(img, opts, ext)
+  "'#{File.join(EXPLORE_DIR, output_filename(img, opts))}#{ext}'"
 end
 
 def test_opts(opts)
   opts[:max_strings] = opts[:max_strings].to_i
   opts[:pin_count] = opts[:pin_count].to_i
   TEST_IMAGES.each do |img|
-    opts[:output_filepath] = "'#{File.join(EXPLORE_DIR, output_filename(img, opts))}'"
+    opts[:output_filepath] = id_filepath(img, opts, '.png')
+    opts[:data_filepath] = id_filepath(img, opts, '.json')
     elapsed_seconds, cmd = run_cmd(img, opts)
     puts "[#{elapsed_seconds}] #{cmd}"
   end
