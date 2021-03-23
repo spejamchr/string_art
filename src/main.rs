@@ -31,12 +31,20 @@ fn main() -> Result<(), std::io::Error> {
                 .help("Location to save generated string image"),
         )
         .arg(
-            Arg::with_name("draw_pins_path")
+            Arg::with_name("pins_filepath")
                 .value_name("FILEPATH")
-                .short("d")
-                .long("draw-pins")
+                .short("p")
+                .long("pins-filepath")
                 .takes_value(true)
                 .help("Location to save image of pin locations"),
+        )
+        .arg(
+            Arg::with_name("data_filepath")
+                .value_name("FILEPATH")
+                .short("d")
+                .long("data-filepath")
+                .takes_value(true)
+                .help("Location for ouput of JSON with operation information that includes: argument values, starting and ending image scores, pin locations, and a list of line segments between pins that form the final image")
         )
         .arg(
             Arg::with_name("max_strings")
@@ -125,7 +133,9 @@ fn main() -> Result<(), std::io::Error> {
 
     let output_filepath = matches.value_of("output_filepath");
 
-    let draw_pins_path = matches.value_of("draw_pins_path");
+    let pins_filepath = matches.value_of("pins_filepath");
+
+    let data_filepath = matches.value_of("data_filepath");
 
     let max_strings = matches
         .value_of("max_strings")
@@ -161,8 +171,11 @@ fn main() -> Result<(), std::io::Error> {
         if let Some(filepath) = output_filepath {
             println!("Received output_filepath: {}", filepath);
         }
-        if let Some(filepath) = draw_pins_path {
-            println!("Received draw_pins_path: {}", filepath);
+        if let Some(filepath) = pins_filepath {
+            println!("Received pins_filepath: {}", filepath);
+        }
+        if let Some(filepath) = data_filepath {
+            println!("Received data_filepath: {}", filepath);
         }
         if matches.is_present("max_strings") {
             println!("Received max_strings: {}", max_strings);
@@ -188,19 +201,28 @@ fn main() -> Result<(), std::io::Error> {
         .decode()
         .expect("Corrupted file");
 
-    create_string(
+    let args = Args {
         max_strings,
-        image,
         step_size,
         string_alpha,
         pin_count,
         pin_arrangement,
         output_filepath,
-        draw_pins_path,
+        pins_filepath,
         verbosity,
-    );
+    };
+
+    let data = create_string(image, args);
+
+    if let Some(filepath) = data_filepath {
+        std::fs::write(filepath, data.to_json_string()).expect("Unable to write file");
+    }
 
     Ok(())
+}
+
+trait ToJsonString {
+    fn to_json_string(&self) -> String;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -475,18 +497,96 @@ fn find_worst_points(
         .min_by_key(|(_, s)| *s)
 }
 
-// Create an image of the string art and output the knob positions and sequence
-fn create_string(
-    strings: usize,
-    image: image::DynamicImage,
+struct Args<'a> {
+    max_strings: usize,
     step_size: f64,
     string_alpha: f64,
-    pins: u32,
-    pin_arrangement: &str,
-    output_filepath: Option<&str>,
-    draw_pins_path: Option<&str>,
+    pin_count: u32,
+    pin_arrangement: &'a str,
+    output_filepath: Option<&'a str>,
+    pins_filepath: Option<&'a str>,
     verbosity: u64,
-) {
+}
+
+impl ToJsonString for Args<'_> {
+    fn to_json_string(&self) -> String {
+        format!(
+            "{{\"max_strings\":{},\"step_size\":{},\"string_alpha\":{},\"pin_count\":{},\"pin_arrangement\":\"{}\",\"output_filepath\":{},\"pins_filepath\":{},\"verbosity\":{}}}",
+            self.max_strings,
+            self.step_size,
+            self.string_alpha,
+            self.pin_count,
+            self.pin_arrangement,
+            self.output_filepath.to_json_string(),
+            self.pins_filepath.to_json_string(),
+            self.verbosity,
+        )
+    }
+}
+
+impl ToJsonString for Option<&str> {
+    fn to_json_string(&self) -> String {
+        match self {
+            Some(s) => format!("{{\"kind\":\"some\",\"val\":\"{}\"}}", s),
+            None => format!("{{\"kind\":\"none\"}}"),
+        }
+    }
+}
+
+struct Data<'a> {
+    args: Args<'a>,
+    image_height: u32,
+    image_width: u32,
+    initial_score: i64,
+    final_score: i64,
+    elapsed_seconds: f64,
+    pin_locations: Vec<Point>,
+    line_segments: Vec<(Point, Point)>,
+}
+
+impl ToJsonString for Data<'_> {
+    fn to_json_string(&self) -> String {
+        format!(
+            "{{\"args\":{},\"image_height\":{},\"image_width\":{},\"initial_score\":{},\"final_score\":{},\"elapsed_seconds\":{},\"pin_locations\":{},\"line_segments\":{}}}",
+            self.args.to_json_string(),
+            self.image_height,
+            self.image_width,
+            self.initial_score,
+            self.final_score,
+            self.elapsed_seconds,
+            self.pin_locations.to_json_string(),
+            self.line_segments.to_json_string(),
+        )
+    }
+}
+
+impl<T: ToJsonString> ToJsonString for Vec<T> {
+    fn to_json_string(&self) -> String {
+        format!(
+            "[{}]",
+            self.iter()
+                .map(|p| p.to_json_string())
+                .collect::<Vec<String>>()
+                .join(",")
+        )
+    }
+}
+
+impl ToJsonString for Point {
+    fn to_json_string(&self) -> String {
+        format!("{{\"x\":{},\"y\":{}}}", self.x, self.y)
+    }
+}
+
+impl ToJsonString for (Point, Point) {
+    fn to_json_string(&self) -> String {
+        vec![self.0, self.1].to_json_string()
+    }
+}
+
+// Create an image of the string art and output the knob positions and sequence
+fn create_string(image: image::DynamicImage, args: Args) -> Data {
+    let now = std::time::Instant::now();
     let height = image.height();
     let width = image.width();
     let mut ref_image = RefImage::new(width, height);
@@ -495,8 +595,8 @@ fn create_string(
         .enumerate_pixels()
         .for_each(|(x, y, p)| ref_image[(x, y)] = p[0].into());
 
-    if verbosity > 1 {
-        let initial_score = ref_image.score();
+    let initial_score = ref_image.score();
+    if args.verbosity > 1 {
         println!("Initial score: {}", initial_score);
     }
 
@@ -505,15 +605,15 @@ fn create_string(
         .save("initial_reference_image.png")
         .unwrap();
 
-    let pins = match pin_arrangement {
-        "perimeter" => generate_pins_perimeter(pins, width, height),
-        "grid" => generate_pins_grid(pins, width, height),
-        "circle" => generate_pins_circle(pins, width, height),
-        "random" => generate_pins_random(pins, width, height),
+    let pins = match args.pin_arrangement {
+        "perimeter" => generate_pins_perimeter(args.pin_count, width, height),
+        "grid" => generate_pins_grid(args.pin_count, width, height),
+        "circle" => generate_pins_circle(args.pin_count, width, height),
+        "random" => generate_pins_random(args.pin_count, width, height),
         a => panic!("That's not a valid pin arrangement: {}", a),
     };
 
-    if let Some(filepath) = draw_pins_path {
+    if let Some(filepath) = args.pins_filepath {
         pins.iter()
             .fold(&mut RefImage::new(width, height), |i, p| {
                 i[p] = u8::MAX as i64;
@@ -530,15 +630,15 @@ fn create_string(
 
     while keep_adding || keep_removing {
         while keep_adding {
-            match find_best_points(&pins, &ref_image, step_size, string_alpha) {
+            match find_best_points(&pins, &ref_image, args.step_size, args.string_alpha) {
                 Some(((a, b), s)) => {
                     // The ref_image is a hypothetical perfectly-string-drawn image, and this is
                     // trying to figure out which strings are in the image. So every time it
                     // chooses a string here, the string is removed from the ref_image.
-                    ref_image.subtract_line(((a, b), step_size, string_alpha));
+                    ref_image.subtract_line(((a, b), args.step_size, args.string_alpha));
                     pin_order.push((a, b));
                     keep_removing = true;
-                    if verbosity > 0 {
+                    if args.verbosity > 0 {
                         println!(
                             "[{:>6}]:   score change: {:>10}     added  {} to {}",
                             pin_order.len(),
@@ -551,21 +651,21 @@ fn create_string(
                 None => keep_adding = false,
             }
 
-            if pin_order.len() > strings {
+            if pin_order.len() > args.max_strings {
                 keep_adding = false
             }
         }
 
         while keep_removing {
-            match find_worst_points(&pin_order, &ref_image, step_size, string_alpha) {
+            match find_worst_points(&pin_order, &ref_image, args.step_size, args.string_alpha) {
                 Some((i, s)) => {
                     let (a, b) = pin_order.remove(i);
                     // The ref_image is a hypothetical perfectly-string-drawn image, and this is
                     // trying to figure out which strings are missing from the image. So every time
                     // it chooses a string here, the string is added back into the ref_image.
-                    ref_image.add_line(((a, b), step_size, string_alpha));
+                    ref_image.add_line(((a, b), args.step_size, args.string_alpha));
                     keep_adding = true;
-                    if verbosity > 0 {
+                    if args.verbosity > 0 {
                         println!(
                             "[{:>6}]:   score change: {:>10}    removed {} to {}",
                             pin_order.len(),
@@ -584,11 +684,11 @@ fn create_string(
         }
     }
 
-    if verbosity > 1 {
-        let final_score = ref_image.score();
+    let final_score = ref_image.score();
+    if args.verbosity > 1 {
         println!("Final score  : {}", final_score);
     }
-    if verbosity > 0 {
+    if args.verbosity > 0 {
         println!("Saving image...");
     }
 
@@ -597,19 +697,31 @@ fn create_string(
         .save("final_reference_image.png")
         .unwrap();
 
-    if let Some(filepath) = output_filepath {
+    if let Some(filepath) = args.output_filepath {
         pin_order
-            .into_iter()
+            .iter()
+            .map(|(a, b)| (*a, *b))
             .map(Line::from)
-            .map(|l| (l, step_size, string_alpha))
+            .map(|l| (l, args.step_size, args.string_alpha))
             .fold(&mut RefImage::new(width, height), |i, a| i.add_line(a))
             .grayscale()
             .save(filepath)
             .unwrap();
     }
 
-    if verbosity > 0 {
+    if args.verbosity > 0 {
         println!("Image saved!")
+    }
+
+    Data {
+        args,
+        image_height: height,
+        image_width: width,
+        initial_score,
+        final_score,
+        elapsed_seconds: now.elapsed().as_secs_f64(),
+        pin_locations: pins,
+        line_segments: pin_order,
     }
 }
 
