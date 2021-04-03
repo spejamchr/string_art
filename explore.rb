@@ -56,13 +56,13 @@ end
 
 def output_filename(img, opts)
   {
-    now: Time.now.to_i,
+    nil => Time.now.to_i,
     r: opts[:pin_arrangement],
     m: opts[:max_strings],
     c: opts[:pin_count],
     s: opts[:step_size],
     a: opts[:string_alpha],
-  }.map { |k, v| "#{k}=#{v}" }.join('_') + '_' + File.basename(img, '.*')
+  }.map { |k, v| [k, v].compact.join('=') }.join('_') + '_' + File.basename(img, '.*')
 end
 
 def id_filepath(img, opts, ext)
@@ -80,20 +80,16 @@ def test_opts(opts)
   end
 end
 
-(1..100).each do |step|
-  STORE.values.select { |v| v[:step_size] }.map { |v| v[:cmd] }.each do |target_cmd|
-    opts = STORE.transform_values do |v|
-      v[:cmd] == target_cmd ? v[:default] * v[:step_size]**step : v[:default]
-    end
-    ARRANGEMENTS.each do |arrangement|
-      opts[:pin_arrangement] = arrangement
-      test_opts(opts)
-    end
-  end
+vars = STORE.select { |_, v| v[:step_size] }
+max_value = 2
 
-  opts = STORE.transform_values do |v|
-    v[:step_size] ? v[:default] * v[:step_size]**step : v[:default]
-  end
+rounds = (0...(max_value + 1)**vars.count)
+  .map { |n| n.to_s(max_value + 1).rjust(vars.count, '0').split('').map(&:to_i) }
+  .sort_by { |a| [a.max, a.sum] }
+
+rounds.each do |step|
+  opts = vars.transform_values.with_index { |v, i| v[:default] * v[:step_size]**step[i] }
+
   ARRANGEMENTS.each do |arrangement|
     opts[:pin_arrangement] = arrangement
     test_opts(opts)

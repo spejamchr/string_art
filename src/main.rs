@@ -462,19 +462,16 @@ fn find_best_points(
     string_alpha: f64,
 ) -> Option<((Point, Point), i64)> {
     pins.par_iter()
-        .filter_map(|a| {
-            pins.iter()
-                .filter(move |b| a.x != b.x && a.y != b.y)
-                .map(move |b| (a, b))
-                .map(|(a, b)| {
-                    (
-                        (*a, *b),
-                        line_score(((*a, *b), step_size, string_alpha), &ref_image),
-                    )
-                })
-                .filter(|(_, s)| s < &0)
-                .min_by_key(|(_, s)| *s)
+        .enumerate()
+        .flat_map(|(i, a)| pins.par_iter().skip(i).map(move |b| (a, b)))
+        .filter(|(a, b)| a.x != b.x && a.y != b.y)
+        .map(|(a, b)| {
+            (
+                (*a, *b),
+                line_score(((*a, *b), step_size, string_alpha), &ref_image),
+            )
         })
+        .filter(|(_, s)| *s < 0)
         .min_by_key(|(_, s)| *s)
 }
 
@@ -493,7 +490,7 @@ fn find_worst_points(
                 line_removal_score(((*a, *b), step_size, string_alpha), &ref_image),
             )
         })
-        .filter(|(_, s)| s < &0)
+        .filter(|(_, s)| *s < 0)
         .min_by_key(|(_, s)| *s)
 }
 
@@ -597,7 +594,7 @@ fn create_string(image: image::DynamicImage, args: Args) -> Data {
 
     let initial_score = ref_image.score();
     if args.verbosity > 1 {
-        println!("Initial score: {}", initial_score);
+        println!("Initial score: {} (lower is better)", initial_score);
     }
 
     if args.verbosity > 2 {
@@ -653,7 +650,7 @@ fn create_string(image: image::DynamicImage, args: Args) -> Data {
                 None => keep_adding = false,
             }
 
-            if pin_order.len() > args.max_strings {
+            if pin_order.len() >= args.max_strings {
                 keep_adding = false
             }
         }
@@ -688,7 +685,8 @@ fn create_string(image: image::DynamicImage, args: Args) -> Data {
 
     let final_score = ref_image.score();
     if args.verbosity > 1 {
-        println!("Final score  : {}", final_score);
+        println!("(Recap) Initial score: {} (lower is better)", initial_score);
+        println!("Final score          : {}", final_score);
     }
     if args.verbosity > 0 {
         println!("Saving image...");
