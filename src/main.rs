@@ -2,12 +2,82 @@ extern crate image;
 extern crate rand;
 extern crate threadpool;
 
+use crate::cli_app::Args;
+
 mod cli_app {
-    use crate::string_art::Args;
-    use clap::{App, Arg};
+    use clap::{App, Arg, ArgMatches};
     use image::io::Reader as ImageReader;
 
-    fn get_matches() -> clap::ArgMatches<'static> {
+    /// The validated arguments passed in by the user
+    #[derive(Debug, Clone)]
+    pub struct Args {
+        image_filepath: String,
+        pub output_filepath: Option<String>,
+        pub pins_filepath: Option<String>,
+        pub data_filepath: Option<String>,
+        pub max_strings: usize,
+        pub step_size: f64,
+        pub string_alpha: f64,
+        pub pin_count: u32,
+        pub pin_arrangement: String,
+        pub verbosity: u64,
+    }
+
+    impl Args {
+        fn string_arg(matches: &ArgMatches, name: &str) -> String {
+            matches
+                .value_of(name)
+                .expect("Required or default value")
+                .to_string()
+        }
+
+        fn opt_string_arg(matches: &ArgMatches, name: &str) -> Option<String> {
+            matches.value_of(name).map(|s| s.to_string())
+        }
+
+        fn number_arg<E: std::fmt::Debug, T: std::str::FromStr<Err = E>>(
+            matches: &ArgMatches,
+            name: &str,
+        ) -> T {
+            matches
+                .value_of(name)
+                .expect("There is a default")
+                .parse::<T>()
+                .expect("This should have passed validation already")
+        }
+
+        pub fn parse() -> Self {
+            let matches = get_matches();
+
+            let args = Self {
+                image_filepath: Self::string_arg(&matches, "image_filepath"),
+                output_filepath: Self::opt_string_arg(&matches, "output_filepath"),
+                pins_filepath: Self::opt_string_arg(&matches, "pins_filepath"),
+                data_filepath: Self::opt_string_arg(&matches, "data_filepath"),
+                max_strings: Self::number_arg(&matches, "max_strings"),
+                step_size: Self::number_arg(&matches, "step_size"),
+                string_alpha: Self::number_arg(&matches, "string_alpha"),
+                pin_count: Self::number_arg(&matches, "pin_count"),
+                pin_arrangement: Self::string_arg(&matches, "pin_arrangement"),
+                verbosity: matches.occurrences_of("verbose"),
+            };
+
+            if args.verbosity > 1 {
+                println!("Running with arguments: {:?}", args);
+            }
+
+            args
+        }
+
+        pub fn image(&self) -> image::DynamicImage {
+            ImageReader::open(&self.image_filepath)
+                .unwrap()
+                .decode()
+                .expect("Corrupted file")
+        }
+    }
+
+    fn get_matches() -> ArgMatches<'static> {
         App::new("strings")
         .version("0.1.0")
         .about("Transform an image into string art")
@@ -124,87 +194,14 @@ mod cli_app {
         )
         .get_matches()
     }
-
-    pub fn image() -> image::DynamicImage {
-        let matches = get_matches();
-        let image_filepath = matches
-            .value_of("image_filepath")
-            .expect("The image_filepath is a required arg");
-
-        ImageReader::open(image_filepath)
-            .unwrap()
-            .decode()
-            .expect("Corrupted file")
-    }
-
-    pub fn data_filepath() -> Option<String> {
-        get_matches()
-            .value_of("data_filepath")
-            .map(|s| s.to_string())
-    }
-
-    pub fn args() -> Args {
-        let matches = get_matches();
-
-        let output_filepath = matches.value_of("output_filepath").map(|s| s.to_string());
-
-        let pins_filepath = matches.value_of("pins_filepath").map(|s| s.to_string());
-
-        let max_strings = matches
-            .value_of("max_strings")
-            .expect("There is a default")
-            .parse::<usize>()
-            .expect("This should have passed validation already");
-
-        let step_size = matches
-            .value_of("step_size")
-            .expect("There is a default")
-            .parse::<f64>()
-            .expect("This should have passed validation already");
-
-        let string_alpha = matches
-            .value_of("string_alpha")
-            .expect("There is a default")
-            .parse::<f64>()
-            .expect("This should have passed validation already");
-
-        let pin_count = matches
-            .value_of("pin_count")
-            .expect("There is a default")
-            .parse::<u32>()
-            .expect("This should have passed validation already");
-
-        let pin_arrangement = matches
-            .value_of("pin_arrangement")
-            .expect("There is a default")
-            .to_string();
-
-        let verbosity = matches.occurrences_of("verbose");
-
-        let args = Args {
-            max_strings,
-            step_size,
-            string_alpha,
-            pin_count,
-            pin_arrangement,
-            output_filepath,
-            pins_filepath,
-            verbosity,
-        };
-
-        if verbosity > 1 {
-            println!("Running with arguments: {:?}", args);
-        }
-
-        args
-    }
 }
 
 fn main() {
-    let data = string_art::create_string(cli_app::image(), cli_app::args());
+    let args = Args::parse();
+    let data = string_art::create_string(args.image(), args.clone());
 
-    if let Some(filepath) = cli_app::data_filepath() {
-        std::fs::write(filepath, data.to_json()).expect("Unable to write file");
+    if let Some(ref data_filepath) = args.data_filepath {
+        std::fs::write(data_filepath, data.to_json()).expect("Unable to write file");
     }
 }
 
@@ -559,13 +556,13 @@ mod optimum {
 }
 
 mod string_art {
+    use crate::cli_app::Args;
     use crate::generate_pins;
     use crate::geometry::Line;
     use crate::geometry::Point;
     use crate::image::GenericImageView;
     use crate::imagery::RefImage;
     use crate::optimum;
-    pub use inout::Args;
     use inout::Data;
     pub use inout::ToJsonString;
 
@@ -727,21 +724,10 @@ mod string_art {
 
     mod inout {
         use crate::geometry::Point;
+        use crate::string_art::Args;
 
         pub trait ToJsonString {
             fn to_json_string(&self) -> String;
-        }
-
-        #[derive(Debug)]
-        pub struct Args {
-            pub max_strings: usize,
-            pub step_size: f64,
-            pub string_alpha: f64,
-            pub pin_count: u32,
-            pub pin_arrangement: String,
-            pub output_filepath: Option<String>,
-            pub pins_filepath: Option<String>,
-            pub verbosity: u64,
         }
 
         impl ToJsonString for Args {
