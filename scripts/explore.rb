@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
-CMD = File.join(__dir__, 'target', 'release', 'strings').freeze
+ROOT_DIR = File.join(__dir__, '..').freeze
 
-EXPLORE_DIR = File.join(__dir__, 'explore').freeze
+CMD = File.join(ROOT_DIR, 'target', 'release', 'strings').freeze
 
-TEST_IMAGES = Dir.glob(File.join(__dir__, 'test_imgs', '*.png')).freeze
+EXPLORE_DIR = File.join(ROOT_DIR, 'explore').freeze
+
+TEST_IMAGES = Dir.glob(File.join(ROOT_DIR, 'test_imgs', '*.png')).freeze
 
 def make_store(cmd, default, step_size)
   {

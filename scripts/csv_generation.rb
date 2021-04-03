@@ -3,7 +3,7 @@
 require 'json'
 require 'csv'
 
-EXPLORE_DIR = File.join(__dir__, 'explore').freeze
+EXPLORE_DIR = File.join(__dir__, '..', 'explore').freeze
 
 JSONS = Dir.glob(File.join(EXPLORE_DIR, '*.json')).freeze
 
