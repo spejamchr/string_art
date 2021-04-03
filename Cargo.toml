@@ -10,5 +10,5 @@ edition = "2018"
 image = "0.23"
 threadpool = "1.7"
 rand = "0.6"
-clap = "2.33"
+clap = {version = "~2.33.0", features = ["yaml"]}
 rayon = "1.5.0"

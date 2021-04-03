@@ -1,4 +1,4 @@
-use clap::{App, Arg, ArgMatches};
+use clap::{load_yaml, App, ArgMatches};
 use image::io::Reader as ImageReader;
 
 /// The validated arguments passed in by the user
@@ -35,11 +35,12 @@ fn number_arg<E: std::fmt::Debug, T: std::str::FromStr<Err = E>>(
         .value_of(name)
         .expect("There is a default")
         .parse::<T>()
-        .expect("This should have passed validation already")
+        .expect(&format!("Argument '{}' was not a valid number", name))
 }
 
 pub fn parse_args() -> Args {
-    let matches = get_matches();
+    let yml = load_yaml!("cli_args.yml");
+    let matches = App::from_yaml(yml).get_matches();
 
     let args = Args {
         image_filepath: string_arg(&matches, "image_filepath"),
@@ -68,122 +69,4 @@ impl Args {
             .decode()
             .expect("Corrupted file")
     }
-}
-
-fn get_matches() -> ArgMatches<'static> {
-    App::new("strings")
-        .version("0.1.0")
-        .about("Transform an image into string art")
-        .arg(
-            Arg::with_name("image_filepath")
-                .value_name("IMAGE_FILEPATH")
-                .takes_value(true)
-                .required(true)
-                .help("Path to the image that will be rendered with strings"),
-        )
-        .arg(
-            Arg::with_name("output_filepath")
-                .value_name("FILEPATH")
-                .short("o")
-                .long("output-filepath")
-                .takes_value(true)
-                .help("Location to save generated string image"),
-        )
-        .arg(
-            Arg::with_name("pins_filepath")
-                .value_name("FILEPATH")
-                .short("p")
-                .long("pins-filepath")
-                .takes_value(true)
-                .help("Location to save image of pin locations"),
-        )
-        .arg(
-            Arg::with_name("data_filepath")
-                .value_name("FILEPATH")
-                .short("d")
-                .long("data-filepath")
-                .takes_value(true)
-                .help("Location for ouput of JSON with operation information that includes: argument values, starting and ending image scores, pin locations, and a list of line segments between pins that form the final image")
-        )
-        .arg(
-            Arg::with_name("max_strings")
-                .value_name("INTEGER")
-                .short("m")
-                .long("max-strings")
-                .takes_value(true)
-                .default_value("4294967295") // u32::MAX
-                .validator(|f| {
-                    f.parse::<usize>()
-                        .map(|_| ())
-                        .map_err(|e| format!("{:?}", e))
-                })
-                .help("The maximum number of strings in the finished work"),
-        )
-        .arg(
-            Arg::with_name("step_size")
-                .value_name("FLOAT")
-                .short("s")
-                .long("step-size")
-                .takes_value(true)
-                .default_value("1")
-                .validator(|f| {
-                        f.parse::<f64>()
-                            .map(|_| ())
-                            .map_err(|e| format!("{:?}", e))
-                })
-                .help("Used when calculating a string's antialiasing. Smaller values -> finer antialiasing")
-        )
-        .arg(
-            Arg::with_name("string_alpha")
-                .value_name("FLOAT")
-                .short("a")
-                .long("string-alpha")
-                .takes_value(true)
-                .default_value("1")
-                .validator(|f| {
-                        f.parse::<f64>()
-                            .map_err(|e| format!("{:?}", e))
-                            .and_then(|i|
-                                if i > 0.0 && i <= 1.0 {
-                                    Ok(i)
-                                } else {
-                                    Err(format!("{} is outside the range (0, 1]", i))
-                                }
-                            )
-                            .map(|_| ())
-                })
-                .help("How opaque each string is: 1 is entirely opaque.")
-        )
-        .arg(
-            Arg::with_name("pin_count")
-                .value_name("INTEGER")
-                .short("c")
-                .long("pin-count")
-                .takes_value(true)
-                .default_value("200")
-                .validator(|f| {
-                        f.parse::<u32>()
-                            .map(|_| ())
-                            .map_err(|e| format!("{:?}", e))
-                })
-                .help("How many pins should be used in creating the image (approximately)")
-        )
-        .arg(
-            Arg::with_name("pin_arrangement")
-                .value_name("ARRANGEMENT")
-                .short("r")
-                .long("pin-arrangement")
-                .takes_value(true)
-                .possible_values(&["perimeter", "grid", "circle", "random"])
-                .default_value("perimeter")
-                .help("Should the pins be arranged on the image's perimeter, or in a grid across the entire image, or in the largest possible centered circle, or scattered randomly?")
-        )
-        .arg(
-            Arg::with_name("verbose")
-                .short("v")
-                .long("verbose")
-                .multiple(true)
-                .help("Output debugging messages")
-        )
-        .get_matches()
 }

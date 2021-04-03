@@ -1,0 +1,89 @@
+name: "strings"
+version: "0.1.0"
+about: "Transform an image into string art"
+author: "Spencer Christiansen <spencer@lessnoise.sh>"
+
+settings:
+    - ArgRequiredElseHelp
+
+args:
+    - image_filepath:
+        value_name: "IMAGE_FILEPATH"
+        takes_value: true
+        required: true
+        help: "Path to the image that will be rendered with strings."
+    - output_filepath:
+        value_name: "FILEPATH"
+        short: "o"
+        long: "output-filepath"
+        takes_value: true
+        help: "Location to save generated string image."
+    - pins_filepath:
+        value_name: "FILEPATH"
+        short: "p"
+        long: "pins-filepath"
+        takes_value: true
+        help: "Location to save image of pin locations."
+    - data_filepath:
+        value_name: "FILEPATH"
+        short: "d"
+        long: "data-filepath"
+        takes_value: true
+        help: >-
+            The script will write operation information as a JSON file if this
+            filepath is given. The operation information includes argument
+            values, starting and ending image scores, pin locations, and a list
+            of line segments between pins that form the final image.
+    - max_strings:
+        value_name: "INTEGER"
+        short: "m"
+        long: "max-strings"
+        takes_value: true
+        default_value: "4294967295" # u32::MAX
+        help: "The maximum number of strings in the finished work."
+    - step_size:
+        value_name: "FLOAT"
+        short: "s"
+        long: "step-size"
+        takes_value: true
+        default_value: "1"
+        help: >-
+            Used when calculating a string's antialiasing. Smaller values ->
+            finer antialiasing.
+    - string_alpha:
+        value_name: "FLOAT"
+        short: "a"
+        long: "string-alpha"
+        takes_value: true
+        default_value: "1"
+        help: >-
+            How opaque or thin each string is. `1` is entirely opaque, `0` is
+            invisible.
+    - pin_count:
+        value_name: "INTEGER"
+        short: "c"
+        long: "pin-count"
+        takes_value: true
+        default_value: "200"
+        help: >-
+            How many pins should be used in creating the image (approximately).
+    - pin_arrangement:
+        value_name: "ARRANGEMENT"
+        short: "r"
+        long: "pin-arrangement"
+        takes_value: true
+        possible_values:
+            - "perimeter"
+            - "grid"
+            - "circle"
+            - "random"
+        default_value: "perimeter"
+        help: >-
+            Should the pins be arranged on the image's perimeter, or in a grid
+            across the entire image, or in the largest possible centered
+            circle, or scattered randomly?
+    - verbose:
+        short: "v"
+        long: "verbose"
+        multiple: true
+        help: "Output debugging messages."
