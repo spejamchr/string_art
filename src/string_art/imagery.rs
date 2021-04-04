@@ -36,6 +36,12 @@ impl RefImage {
         Self(vec![vec![0; width as usize]; height as usize])
     }
 
+    pub fn set_all_to(&mut self, val: i64) {
+        let width = self.width() as usize;
+        let height = self.height() as usize;
+        self.0 = vec![vec![val; width]; height];
+    }
+
     pub fn score(&self) -> i64 {
         self.0.iter().flatten().map(|p| p * p).sum() // Seems to be worse?
     }
@@ -50,11 +56,11 @@ impl RefImage {
         self
     }
 
-    fn width(&self) -> u32 {
+    pub fn width(&self) -> u32 {
         self.0[0].len() as u32
     }
 
-    fn height(&self) -> u32 {
+    pub fn height(&self) -> u32 {
         self.0.len() as u32
     }
 

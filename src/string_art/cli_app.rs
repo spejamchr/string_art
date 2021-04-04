@@ -35,7 +35,7 @@ fn number_arg<E: std::fmt::Debug, T: std::str::FromStr<Err = E>>(
         .value_of(name)
         .expect("There is a default")
         .parse::<T>()
-        .expect(&format!("Argument '{}' was not a valid number", name))
+        .unwrap_or_else(|_| panic!("Argument '{}' was not a valid number", name))
 }
 
 pub fn parse_args() -> Args {
