@@ -1,4 +1,4 @@
-name: "strings"
+name: "string_art"
 version: "0.1.0"
 about: "Transform an image into string art"
 author: "Spencer Christiansen <spencer@lessnoise.sh>"

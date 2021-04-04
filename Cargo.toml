@@ -1,5 +1,5 @@
 [package]
-name = "strings"
+name = "string_art"
 version = "0.1.0"
 authors = ["Spencer Christiansen <jc.spencer92@gmail.com>"]
 edition = "2018"

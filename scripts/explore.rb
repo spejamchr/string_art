@@ -2,7 +2,7 @@
 
 ROOT_DIR = File.join(__dir__, '..').freeze
 
-CMD = File.join(ROOT_DIR, 'target', 'release', 'strings').freeze
+CMD = File.join(ROOT_DIR, 'target', 'release', 'string_art').freeze
 
 EXPLORE_DIR = File.join(ROOT_DIR, 'explore').freeze
 
