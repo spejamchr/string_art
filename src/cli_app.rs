@@ -13,6 +13,7 @@ pub struct Args {
     pub string_alpha: f64,
     pub pin_count: u32,
     pub pin_arrangement: String,
+    pub style: String,
     pub verbosity: u64,
 }
 
@@ -39,8 +40,8 @@ fn number_arg<E: std::fmt::Debug, T: std::str::FromStr<Err = E>>(
 }
 
 pub fn parse_args() -> Args {
-    let yml = load_yaml!("cli_args.yml");
-    let matches = App::from_yaml(yml).get_matches();
+    let yaml = load_yaml!("cli_args.yml");
+    let matches = App::from_yaml(yaml).get_matches();
 
     let args = Args {
         image_filepath: string_arg(&matches, "image_filepath"),
@@ -52,6 +53,7 @@ pub fn parse_args() -> Args {
         string_alpha: number_arg(&matches, "string_alpha"),
         pin_count: number_arg(&matches, "pin_count"),
         pin_arrangement: string_arg(&matches, "pin_arrangement"),
+        style: string_arg(&matches, "style"),
         verbosity: matches.occurrences_of("verbose"),
     };
 

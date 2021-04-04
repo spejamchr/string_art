@@ -3,9 +3,6 @@ version: "0.1.0"
 about: "Transform an image into string art"
 author: "Spencer Christiansen <spencer@lessnoise.sh>"
 
-settings:
-    - ArgRequiredElseHelp
-
 args:
     - image_filepath:
         value_name: "IMAGE_FILEPATH"
@@ -82,6 +79,16 @@ args:
             Should the pins be arranged on the image's perimeter, or in a grid
             across the entire image, or in the largest possible centered
             circle, or scattered randomly?
+    - style:
+        value_name: "STYLE"
+        short: "t"
+        long: "style"
+        takes_value: true
+        possible_values:
+            - "white-on-black"
+            - "black-on-white"
+        default_value: "white-on-black"
+        help: "The style of image to create: white strings on black background, or vice-versa"
     - verbose:
         short: "v"
         long: "verbose"

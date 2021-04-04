@@ -1,9 +1,9 @@
 use super::cli_app;
 use super::generate_pins;
+use super::style::black_on_white;
 use super::style::white_on_black;
 use crate::inout::ToJsonString;
 use image::GenericImageView;
-use std::time::Instant;
 
 // Create an image of the string art and output the knob positions and sequence
 pub fn create_string() {
@@ -22,7 +22,11 @@ pub fn create_string() {
 
     let data_filepath_option = args.data_filepath.clone();
 
-    let data = white_on_black::run(pins, args, image, Instant::now());
+    let data = match &args.style[..] {
+        "white-on-black" => white_on_black::run(pins, args, &image),
+        "black-on-white" => black_on_white::run(pins, args, &image),
+        t => panic!("That's not a valid style: {}", t),
+    };
 
     if let Some(data_filepath) = data_filepath_option {
         std::fs::write(data_filepath, data.to_json_string()).expect("Unable to write file");

@@ -1,4 +1,7 @@
 use super::geometry::{Line, Point};
+use crate::image::DynamicImage;
+use crate::image::GenericImageView;
+use crate::inout::Data;
 use std::collections::HashMap;
 
 pub struct PixLine(HashMap<Point, u8>);
@@ -36,10 +39,10 @@ impl RefImage {
         Self(vec![vec![0; width as usize]; height as usize])
     }
 
-    pub fn set_all_to(&mut self, val: i64) {
-        let width = self.width() as usize;
-        let height = self.height() as usize;
-        self.0 = vec![vec![val; width]; height];
+    pub fn invert(&mut self) {
+        self.0
+            .iter_mut()
+            .for_each(|row| row.iter_mut().for_each(|v| *v = (u8::MAX as i64) - *v))
     }
 
     pub fn score(&self) -> i64 {
@@ -73,6 +76,43 @@ impl RefImage {
             }
         }
         img
+    }
+}
+
+impl<T: Into<Line> + Copy> std::convert::From<(&Vec<T>, u32, u32, f64, f64)> for RefImage {
+    fn from(
+        (line_segmentables, width, height, step_size, string_alpha): (&Vec<T>, u32, u32, f64, f64),
+    ) -> Self {
+        let mut ref_image = RefImage::new(width, height);
+        line_segmentables
+            .iter()
+            .map(|t| (*t).into())
+            .map(|l| (l, step_size, string_alpha))
+            .fold(&mut ref_image, |i, a| i.add_line(a));
+        ref_image
+    }
+}
+
+impl std::convert::From<&DynamicImage> for RefImage {
+    fn from(image: &DynamicImage) -> Self {
+        let mut ref_image = RefImage::new(image.width(), image.height());
+        image
+            .to_luma8()
+            .enumerate_pixels()
+            .for_each(|(x, y, p)| ref_image[(x, y)] = p[0].into());
+        ref_image
+    }
+}
+
+impl std::convert::From<&Data> for RefImage {
+    fn from(data: &Data) -> Self {
+        Self::from((
+            &data.line_segments,
+            data.image_width,
+            data.image_height,
+            data.args.step_size,
+            data.args.string_alpha,
+        ))
     }
 }
 

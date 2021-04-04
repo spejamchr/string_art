@@ -9,10 +9,13 @@ where
     T: Into<RefImage>,
 {
     let mut ref_image = imageable.into();
+    ref_image.invert();
 
     monochrome::run(args, &mut ref_image, pin_locations, |data| {
         if let Some(ref filepath) = data.args.output_filepath {
-            RefImage::from(data).grayscale().save(filepath).unwrap();
+            let mut string_image = RefImage::from(data);
+            string_image.invert();
+            string_image.grayscale().save(filepath).unwrap();
         }
     })
 }
