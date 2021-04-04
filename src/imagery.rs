@@ -123,7 +123,7 @@ impl std::ops::IndexMut<(u32, u32)> for RefImage {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::string_art::geometry::Vector;
+    use crate::geometry::Vector;
 
     #[test]
     fn test_pix_line_iter() {

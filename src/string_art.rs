@@ -1,18 +1,9 @@
-mod cli_app;
-mod generate_pins;
-mod geometry;
-mod imagery;
-mod inout;
-mod optimum;
-mod style;
-
-use geometry::Point;
+use super::cli_app;
+use super::generate_pins;
+use super::style::white_on_black;
+use crate::inout::ToJsonString;
 use image::GenericImageView;
-use imagery::RefImage;
-use inout::Data;
-use inout::ToJsonString;
 use std::time::Instant;
-use style::white_on_black;
 
 // Create an image of the string art and output the knob positions and sequence
 pub fn create_string() {

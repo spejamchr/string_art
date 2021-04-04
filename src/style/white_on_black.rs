@@ -1,11 +1,11 @@
+use crate::cli_app::Args;
+use crate::geometry::Line;
+use crate::geometry::Point;
 use crate::image::DynamicImage;
 use crate::image::GenericImageView;
-use crate::string_art::cli_app::Args;
-use crate::string_art::geometry::Line;
-use crate::string_art::optimum;
-use crate::string_art::Data;
-use crate::string_art::Point;
-use crate::string_art::RefImage;
+use crate::imagery::RefImage;
+use crate::inout::Data;
+use crate::optimum;
 use std::time::Instant;
 
 fn log_added_points(verbosity: u64, pin_len: usize, score_change: i64, a: Point, b: Point) {
