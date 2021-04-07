@@ -1,8 +1,10 @@
-use super::cli_app;
-use super::generate_pins;
-use super::style::black_on_white;
-use super::style::white_on_black;
+use crate::cli_app;
+use crate::generate_pins;
+use crate::imagery::RGB;
 use crate::inout::ToJsonString;
+use crate::style::black_on_white;
+use crate::style::explicit_color;
+use crate::style::white_on_black;
 use image::GenericImageView;
 
 // Create an image of the string art and output the knob positions and sequence
@@ -25,6 +27,17 @@ pub fn create_string() {
     let data = match &args.style[..] {
         "white-on-black" => white_on_black::run(pins, args, &image),
         "black-on-white" => black_on_white::run(pins, args, &image),
+        "colors" => explicit_color::run(
+            pins,
+            args,
+            &image,
+            &[
+                RGB::new(235, 50, 35),
+                RGB::new(255, 253, 84),
+                RGB::new(113, 251, 253),
+                RGB::new(0, 35, 245),
+            ],
+        ),
         t => panic!("That's not a valid style: {}", t),
     };
 

@@ -87,6 +87,7 @@ args:
         possible_values:
             - "white-on-black"
             - "black-on-white"
+            - "colors"
         default_value: "white-on-black"
         help: "The style of image to create: white strings on black background, or vice-versa"
     - verbose:

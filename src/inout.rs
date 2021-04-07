@@ -1,5 +1,6 @@
 use super::cli_app::Args;
 use super::geometry::Point;
+use crate::imagery::RGB;
 
 pub trait ToJsonString {
     fn to_json_string(&self) -> String;
@@ -38,7 +39,7 @@ pub struct Data {
     pub final_score: i64,
     pub elapsed_seconds: f64,
     pub pin_locations: Vec<Point>,
-    pub line_segments: Vec<(Point, Point)>,
+    pub line_segments: Vec<(Point, Point, RGB)>,
 }
 
 impl ToJsonString for Data {
@@ -75,8 +76,15 @@ impl ToJsonString for Point {
     }
 }
 
-impl ToJsonString for (Point, Point) {
+impl ToJsonString for RGB {
     fn to_json_string(&self) -> String {
-        vec![self.0, self.1].to_json_string()
+        format!(r#"{{"r":{},"g":{},"b":{}}}"#, self.r, self.g, self.b)
+    }
+}
+
+impl ToJsonString for (Point, Point, RGB) {
+    fn to_json_string(&self) -> String {
+        let point = vec![self.0, self.1].to_json_string();
+        format!(r#"{{"point":{},"rgb":{}}}"#, point, self.2.to_json_string())
     }
 }

@@ -1,36 +1,58 @@
 use crate::cli_app::Args;
 use crate::geometry::Point;
-use crate::imagery::RefImageMon;
+use crate::imagery::RefImageCol;
 use crate::imagery::RGB;
 use crate::inout::Data;
 use crate::optimum;
 use std::time::Instant;
 
-fn log_added_points(verbosity: u64, pin_len: usize, score_change: i64, a: Point, b: Point) {
+fn log_added_points(
+    verbosity: u64,
+    pin_len: usize,
+    score_change: i64,
+    a: Point,
+    b: Point,
+    rgb: RGB,
+) {
     if verbosity > 0 {
+        let rgb = rgb.inverted();
         println!(
-            "[{:>6}]:   score change: {:>10}     added  {} to {}",
-            pin_len, score_change, a, b
+            "[{:>6}]:   score change: {:>10}     added  {} to {} with {}",
+            pin_len, score_change, a, b, rgb
         );
     }
 }
 
-fn log_removed_points(verbosity: u64, pin_len: usize, score_change: i64, a: Point, b: Point) {
+fn log_removed_points(
+    verbosity: u64,
+    pin_len: usize,
+    score_change: i64,
+    a: Point,
+    b: Point,
+    rgb: RGB,
+) {
     if verbosity > 0 {
+        let rgb = rgb.inverted();
         println!(
-            "[{:>6}]:   score change: {:>10}    removed {} to {}",
-            pin_len, score_change, a, b
+            "[{:>6}]:   score change: {:>10}    removed {} to {} with {}",
+            pin_len, score_change, a, b, rgb
         );
     }
 }
 
-pub fn run(args: Args, ref_image: &mut RefImageMon, pin_locations: Vec<Point>, rgb: RGB) -> Data {
+pub fn run(
+    args: Args,
+    ref_image: &mut RefImageCol,
+    pin_locations: Vec<Point>,
+    rgbs: &[RGB],
+) -> Data {
     let image_width = ref_image.width();
     let image_height = ref_image.height();
+    ref_image.color().save("/Users/spencer/before.png").unwrap();
 
     let start_at = Instant::now();
     let (line_segments, initial_score, final_score) =
-        implementation(&args, ref_image, &pin_locations);
+        implementation(&args, ref_image, &pin_locations, rgbs);
 
     let elapsed_seconds = start_at.elapsed().as_secs_f64();
 
@@ -42,19 +64,17 @@ pub fn run(args: Args, ref_image: &mut RefImageMon, pin_locations: Vec<Point>, r
         final_score,
         elapsed_seconds,
         pin_locations,
-        line_segments: line_segments
-            .into_iter()
-            .map(|(a, b)| (a, b, rgb))
-            .collect(),
+        line_segments,
     }
 }
 
 fn implementation(
     args: &Args,
-    ref_image: &mut RefImageMon,
+    ref_image: &mut RefImageCol,
     pin_locations: &[Point],
-) -> (Vec<(Point, Point)>, i64, i64) {
-    let mut line_segments: Vec<(Point, Point)> = Vec::new();
+    rgbs: &[RGB],
+) -> (Vec<(Point, Point, RGB)>, i64, i64) {
+    let mut line_segments: Vec<(Point, Point, RGB)> = Vec::new();
     let mut keep_adding = true;
     let mut keep_removing = true;
 
@@ -64,18 +84,19 @@ fn implementation(
         println!("Initial score: {} (lower is better)", initial_score);
     }
 
-    let mut max_at_once = usize::max(1, usize::min(args.max_strings / 10, 100));
+    let mut max_at_once = usize::min(args.max_strings / 10, 100);
 
     while keep_adding || keep_removing {
         while keep_adding {
             keep_adding = false;
 
-            let points = optimum::find_best_points_mon(
+            let points = optimum::find_best_points_col(
                 &pin_locations,
                 &ref_image,
                 args.step_size,
                 args.string_alpha,
-                max_at_once,
+                rgbs,
+                usize::min(args.max_strings - line_segments.len(), max_at_once),
             );
 
             if points.len() > 0 {
@@ -83,13 +104,10 @@ fn implementation(
                 keep_adding = true;
             }
 
-            points.into_iter().for_each(|((a, b), s)| {
-                // The ref_image is a hypothetical perfectly-string-drawn image, and this is trying
-                // to figure out which strings are in the image. So every time it chooses a pair of
-                // points to add, the string is subtracted from the ref_image.
-                ref_image.subtract_line(((a, b), args.step_size, args.string_alpha));
-                line_segments.push((a, b));
-                log_added_points(args.verbosity, line_segments.len(), s, a, b);
+            points.into_iter().for_each(|((a, b, rgb), s)| {
+                ref_image.add_line(((a, b), rgb, args.step_size, args.string_alpha));
+                line_segments.push((a, b, rgb));
+                log_added_points(args.verbosity, line_segments.len(), s, a, b, rgb);
             });
 
             if line_segments.len() >= args.max_strings {
@@ -100,14 +118,13 @@ fn implementation(
         while keep_removing {
             keep_removing = false;
 
-            let mut worst_points = optimum::find_worst_points_mon(
+            let mut worst_points = optimum::find_worst_points_col(
                 &line_segments,
                 &ref_image,
                 args.step_size,
                 args.string_alpha,
-                max_at_once,
+                usize::min(line_segments.len(), max_at_once),
             );
-            // Remove them from biggest index to smallest so the indices stay true.
             worst_points.sort_unstable_by_key(|(i, _)| *i);
             worst_points.reverse();
 
@@ -117,12 +134,11 @@ fn implementation(
             }
 
             worst_points.into_iter().for_each(|(i, s)| {
-                let (a, b) = line_segments.remove(i);
-                // The ref_image is a hypothetical perfectly-string-drawn image, and this is trying
-                // to figure out which strings are missing from the image. So every time it chooses
-                // a string here, the string is added back into the ref_image.
-                ref_image.add_line(((a, b), args.step_size, args.string_alpha));
-                log_removed_points(args.verbosity, line_segments.len(), s, a, b);
+                let (a, b, rgb) = line_segments.remove(i);
+                ref_image.subtract_line(((a, b), rgb, args.step_size, args.string_alpha));
+                keep_removing = true;
+                keep_adding = true;
+                log_removed_points(args.verbosity, line_segments.len(), s, a, b, rgb);
             });
 
             if line_segments.is_empty() {
@@ -139,6 +155,7 @@ fn implementation(
         println!("(Recap) Initial score: {} (lower is better)", initial_score);
         println!("Final score          : {}", final_score);
     }
+    ref_image.color().save("/Users/spencer/after.png").unwrap();
 
     (line_segments, initial_score, final_score)
 }

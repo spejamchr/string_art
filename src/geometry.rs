@@ -80,6 +80,12 @@ impl<T: Into<Vector>> std::convert::From<(T, T)> for Line {
     }
 }
 
+impl<T: Into<Vector>, A> std::convert::From<(T, T, A)> for Line {
+    fn from((a, b, _): (T, T, A)) -> Self {
+        Self(a.into(), b.into())
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineIter {
     basis: Vector,
