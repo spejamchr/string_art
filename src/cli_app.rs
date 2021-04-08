@@ -1,3 +1,4 @@
+use crate::imagery::RGB;
 use clap::{load_yaml, App, ArgMatches};
 use image::io::Reader as ImageReader;
 
@@ -15,6 +16,7 @@ pub struct Args {
     pub pin_arrangement: String,
     pub style: String,
     pub verbosity: u64,
+    pub rgbs: Vec<RGB>,
 }
 
 fn string_arg(matches: &ArgMatches, name: &str) -> String {
@@ -39,6 +41,22 @@ fn number_arg<E: std::fmt::Debug, T: std::str::FromStr<Err = E>>(
         .unwrap_or_else(|_| panic!("Argument '{}' was not a valid number", name))
 }
 
+// Parses a color hex code of the form '#RRGGBB..' into an instance of 'RGB'
+fn parse_rgb(hex_code: &str) -> RGB {
+    let error = |_| panic!(format!("Invalid hex code: '{}'", hex_code));
+    let r: u8 = u8::from_str_radix(&hex_code[1..3], 16).unwrap_or_else(error);
+    let g: u8 = u8::from_str_radix(&hex_code[3..5], 16).unwrap_or_else(error);
+    let b: u8 = u8::from_str_radix(&hex_code[5..7], 16).unwrap_or_else(error);
+    RGB::new(r, g, b)
+}
+
+fn parse_rgbs(matches: &ArgMatches, name: &str) -> Vec<RGB> {
+    matches
+        .values_of(name)
+        .map(|v| v.map(parse_rgb).collect())
+        .unwrap_or_else(|| Vec::new())
+}
+
 pub fn parse_args() -> Args {
     let yaml = load_yaml!("cli_args.yml");
     let matches = App::from_yaml(yaml).get_matches();
@@ -55,6 +73,7 @@ pub fn parse_args() -> Args {
         pin_arrangement: string_arg(&matches, "pin_arrangement"),
         style: string_arg(&matches, "style"),
         verbosity: matches.occurrences_of("verbose"),
+        rgbs: parse_rgbs(&matches, "hex_color"),
     };
 
     if args.verbosity > 1 {

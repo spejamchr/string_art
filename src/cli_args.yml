@@ -90,6 +90,16 @@ args:
             - "colors"
         default_value: "white-on-black"
         help: "The style of image to create: white strings on black background, or vice-versa"
+    - hex_color:
+        value_name: "HEX_COLOR"
+        short: "x"
+        long: "hex-color"
+        takes_value: true
+        multiple: true
+        help: >-
+            An RGB color in hex format `#RRGGBB` specifying the color of a
+            string to use. Can be specified multiple times to specify multiple
+            colors of strings. Implies `--style=colors`.
     - verbose:
         short: "v"
         long: "verbose"
