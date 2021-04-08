@@ -6,6 +6,39 @@ use crate::inout::Data;
 use crate::optimum;
 use std::time::Instant;
 
+pub fn black_on_white<T>(pin_locations: Vec<Point>, args: Args, imageable: T) -> Data
+where
+    T: Into<RefImageMon>,
+{
+    let mut ref_image = imageable.into();
+    ref_image.invert();
+
+    let data = run(args, &mut ref_image, pin_locations, RGB::new(0, 0, 0));
+
+    if let Some(ref filepath) = data.args.output_filepath {
+        let mut string_image = RefImageMon::from(&data);
+        string_image.invert();
+        string_image.grayscale().save(filepath).unwrap();
+    }
+
+    data
+}
+
+pub fn white_on_black<T>(pin_locations: Vec<Point>, args: Args, imageable: T) -> Data
+where
+    T: Into<RefImageMon>,
+{
+    let mut ref_image = imageable.into();
+
+    let data = run(args, &mut ref_image, pin_locations, RGB::new(255, 255, 255));
+
+    if let Some(ref filepath) = data.args.output_filepath {
+        RefImageMon::from(&data).grayscale().save(filepath).unwrap();
+    }
+
+    data
+}
+
 fn log_added_points(verbosity: u64, pin_len: usize, score_change: i64, a: Point, b: Point) {
     if verbosity > 0 {
         println!(
@@ -24,7 +57,7 @@ fn log_removed_points(verbosity: u64, pin_len: usize, score_change: i64, a: Poin
     }
 }
 
-pub fn run(args: Args, ref_image: &mut RefImageMon, pin_locations: Vec<Point>, rgb: RGB) -> Data {
+fn run(args: Args, ref_image: &mut RefImageMon, pin_locations: Vec<Point>, rgb: RGB) -> Data {
     let image_width = ref_image.width();
     let image_height = ref_image.height();
 

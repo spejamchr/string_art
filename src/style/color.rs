@@ -6,6 +6,48 @@ use crate::inout::Data;
 use crate::optimum;
 use std::time::Instant;
 
+pub fn on_white<T>(pin_locations: Vec<Point>, args: Args, imageable: T) -> Data
+where
+    T: Into<RefImageCol>,
+{
+    let mut ref_image = imageable.into();
+
+    let colors = args
+        .rgbs
+        .iter()
+        .map(|rgb| rgb.inverted())
+        .collect::<Vec<_>>();
+
+    let data = run(args, &mut ref_image, pin_locations, &colors, true);
+
+    if let Some(ref filepath) = data.args.output_filepath {
+        let mut image = RefImageCol::from(&data);
+        image.invert();
+        image.color().save(filepath).unwrap();
+    }
+
+    data
+}
+
+pub fn on_black<T>(pin_locations: Vec<Point>, args: Args, imageable: T) -> Data
+where
+    T: Into<RefImageCol>,
+{
+    let mut ref_image = imageable.into();
+    ref_image.invert();
+
+    let colors = args.rgbs.clone();
+
+    let data = run(args, &mut ref_image, pin_locations, &colors, false);
+
+    if let Some(ref filepath) = data.args.output_filepath {
+        let image = RefImageCol::from(&data);
+        image.color().save(filepath).unwrap();
+    }
+
+    data
+}
+
 fn log_added_points(
     verbosity: u64,
     pin_len: usize,
@@ -13,9 +55,10 @@ fn log_added_points(
     a: Point,
     b: Point,
     rgb: RGB,
+    invert: bool,
 ) {
     if verbosity > 0 {
-        let rgb = rgb.inverted();
+        let rgb = if invert { rgb.inverted() } else { rgb };
         println!(
             "[{:>6}]:   score change: {:>10}     added  {} to {} with {}",
             pin_len, score_change, a, b, rgb
@@ -30,9 +73,10 @@ fn log_removed_points(
     a: Point,
     b: Point,
     rgb: RGB,
+    invert: bool,
 ) {
     if verbosity > 0 {
-        let rgb = rgb.inverted();
+        let rgb = if invert { rgb.inverted() } else { rgb };
         println!(
             "[{:>6}]:   score change: {:>10}    removed {} to {} with {}",
             pin_len, score_change, a, b, rgb
@@ -40,11 +84,12 @@ fn log_removed_points(
     }
 }
 
-pub fn run(
+fn run(
     args: Args,
     ref_image: &mut RefImageCol,
     pin_locations: Vec<Point>,
     rgbs: &[RGB],
+    invert: bool,
 ) -> Data {
     let image_width = ref_image.width();
     let image_height = ref_image.height();
@@ -52,7 +97,7 @@ pub fn run(
 
     let start_at = Instant::now();
     let (line_segments, initial_score, final_score) =
-        implementation(&args, ref_image, &pin_locations, rgbs);
+        implementation(&args, ref_image, &pin_locations, rgbs, invert);
 
     let elapsed_seconds = start_at.elapsed().as_secs_f64();
 
@@ -73,6 +118,7 @@ fn implementation(
     ref_image: &mut RefImageCol,
     pin_locations: &[Point],
     rgbs: &[RGB],
+    invert: bool,
 ) -> (Vec<(Point, Point, RGB)>, i64, i64) {
     let mut line_segments: Vec<(Point, Point, RGB)> = Vec::new();
     let mut keep_adding = true;
@@ -107,7 +153,7 @@ fn implementation(
             points.into_iter().for_each(|((a, b, rgb), s)| {
                 ref_image.add_line(((a, b), rgb, args.step_size, args.string_alpha));
                 line_segments.push((a, b, rgb));
-                log_added_points(args.verbosity, line_segments.len(), s, a, b, rgb);
+                log_added_points(args.verbosity, line_segments.len(), s, a, b, rgb, invert);
             });
 
             if line_segments.len() >= args.max_strings {
@@ -138,7 +184,7 @@ fn implementation(
                 ref_image.subtract_line(((a, b), rgb, args.step_size, args.string_alpha));
                 keep_removing = true;
                 keep_adding = true;
-                log_removed_points(args.verbosity, line_segments.len(), s, a, b, rgb);
+                log_removed_points(args.verbosity, line_segments.len(), s, a, b, rgb, invert);
             });
 
             if line_segments.is_empty() {

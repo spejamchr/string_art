@@ -87,7 +87,8 @@ args:
         possible_values:
             - "white-on-black"
             - "black-on-white"
-            - "colors"
+            - "color-on-white"
+            - "color-on-black"
         default_value: "white-on-black"
         help: "The style of image to create: white strings on black background, or vice-versa"
     - hex_color:
