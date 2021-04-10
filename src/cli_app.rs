@@ -9,6 +9,7 @@ pub struct Args {
     pub output_filepath: Option<String>,
     pub pins_filepath: Option<String>,
     pub data_filepath: Option<String>,
+    pub gif_filepath: Option<String>,
     pub max_strings: usize,
     pub step_size: f64,
     pub string_alpha: f64,
@@ -54,7 +55,7 @@ fn parse_rgbs(matches: &ArgMatches, name: &str) -> Vec<RGB> {
     matches
         .values_of(name)
         .map(|v| v.map(parse_rgb).collect())
-        .unwrap_or_else(|| Vec::new())
+        .unwrap_or_else(Vec::new)
 }
 
 pub fn parse_args() -> Args {
@@ -66,6 +67,7 @@ pub fn parse_args() -> Args {
         output_filepath: opt_string_arg(&matches, "output_filepath"),
         pins_filepath: opt_string_arg(&matches, "pins_filepath"),
         data_filepath: opt_string_arg(&matches, "data_filepath"),
+        gif_filepath: opt_string_arg(&matches, "gif_filepath"),
         max_strings: number_arg(&matches, "max_strings"),
         step_size: number_arg(&matches, "step_size"),
         string_alpha: number_arg(&matches, "string_alpha"),

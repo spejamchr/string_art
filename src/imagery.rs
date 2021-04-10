@@ -334,14 +334,15 @@ impl RefImageCol {
         self.0.len() as u32
     }
 
-    pub fn color(&self) -> image::RgbImage {
-        let mut img = image::RgbImage::new(self.width(), self.height());
+    pub fn color(&self) -> image::RgbaImage {
+        let mut img = image::RgbaImage::new(self.width(), self.height());
         for (y, row) in self.0.iter().enumerate() {
             for (x, p) in row.iter().enumerate() {
                 let pixel = img.get_pixel_mut(x as u32, y as u32);
                 pixel[0] = i64_to_u8_clamped(p.0);
                 pixel[1] = i64_to_u8_clamped(p.1);
                 pixel[2] = i64_to_u8_clamped(p.2);
+                pixel[3] = u8::MAX; // Alpha channel
             }
         }
         img

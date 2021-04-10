@@ -31,6 +31,12 @@ args:
             filepath is given. The operation information includes argument
             values, starting and ending image scores, pin locations, and a list
             of line segments between pins that form the final image.
+    - gif_filepath:
+        value_name: "FILEPATH"
+        short: "g"
+        long: "gif-filepath"
+        takes_value: true
+        help: "Location to save a gif of the creation process"
     - max_strings:
         value_name: "INTEGER"
         short: "m"

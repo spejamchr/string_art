@@ -4,6 +4,8 @@ use crate::imagery::RefImageCol;
 use crate::imagery::RGB;
 use crate::inout::Data;
 use crate::optimum;
+use image::gif::GifEncoder;
+use std::fs::File;
 use std::time::Instant;
 
 pub fn on_white<T>(pin_locations: Vec<Point>, args: Args, imageable: T) -> Data
@@ -93,7 +95,6 @@ fn run(
 ) -> Data {
     let image_width = ref_image.width();
     let image_height = ref_image.height();
-    ref_image.color().save("/Users/spencer/before.png").unwrap();
 
     let start_at = Instant::now();
     let (line_segments, initial_score, final_score) =
@@ -110,6 +111,30 @@ fn run(
         elapsed_seconds,
         pin_locations,
         line_segments,
+    }
+}
+
+fn capture_frame(
+    line_segments: &[(Point, Point, RGB)],
+    frames: &mut Vec<image::RgbaImage>,
+    args: &Args,
+    width: u32,
+    height: u32,
+    invert: bool,
+) {
+    if args.gif_filepath.is_some() {
+        let mut image = RefImageCol::from((
+            &line_segments
+                .iter()
+                .map(|(a, b, rgb)| ((*a, *b), *rgb, args.step_size, args.string_alpha))
+                .collect(),
+            width,
+            height,
+        ));
+        if invert {
+            image.invert()
+        };
+        frames.push(image.color())
     }
 }
 
@@ -132,8 +157,14 @@ fn implementation(
 
     let mut max_at_once = usize::min(args.max_strings / 10, 100);
 
+    let mut frames = Vec::new();
+    let width = ref_image.width();
+    let height = ref_image.height();
+
     while keep_adding || keep_removing {
         while keep_adding {
+            capture_frame(&line_segments, &mut frames, &args, width, height, invert);
+
             keep_adding = false;
 
             let points = optimum::find_best_points_col(
@@ -162,6 +193,8 @@ fn implementation(
         }
 
         while keep_removing {
+            capture_frame(&line_segments, &mut frames, &args, width, height, invert);
+
             keep_removing = false;
 
             let mut worst_points = optimum::find_worst_points_col(
@@ -196,12 +229,24 @@ fn implementation(
         max_at_once = usize::max(1, max_at_once.saturating_sub(tenth));
     }
 
+    capture_frame(&line_segments, &mut frames, &args, width, height, invert);
+
+    if let Some(gif_filepath) = &args.gif_filepath {
+        let file_out = File::create(gif_filepath).unwrap();
+        if args.verbosity > 2 {
+            println!("Encoding {} gif frames", frames.len());
+        }
+        let mut encoder = GifEncoder::new_with_speed(file_out, 10);
+        encoder
+            .encode_frames(frames.into_iter().map(image::Frame::new))
+            .unwrap();
+    }
+
     let final_score = ref_image.score();
     if args.verbosity > 1 {
         println!("(Recap) Initial score: {} (lower is better)", initial_score);
         println!("Final score          : {}", final_score);
     }
-    ref_image.color().save("/Users/spencer/after.png").unwrap();
 
     (line_segments, initial_score, final_score)
 }
