@@ -4,8 +4,10 @@ about: "Transform an image into string art"
 author: "Spencer Christiansen <spencer@lessnoise.sh>"
 
 args:
-    - image_filepath:
-        value_name: "IMAGE_FILEPATH"
+    - input_filepath:
+        value_name: "FILEPATH"
+        short: "i"
+        long: "input-filepath"
         takes_value: true
         required: true
         help: "Path to the image that will be rendered with strings."
@@ -93,10 +95,29 @@ args:
         possible_values:
             - "white-on-black"
             - "black-on-white"
-            - "color-on-white"
             - "color-on-black"
+            - "color-on-white"
+            - "auto-color"
         default_value: "white-on-black"
-        help: "The style of image to create: white strings on black background, or vice-versa"
+        help: >-
+            The style of image to create.
+
+                [White|Black|Color] threads on [White|Black] background.
+                Automatically pick all colors.
+
+            When using color threads, pass the desired colors with the
+            --hex-color argument.
+
+            When using 'auto-color', the program will try to detect the best
+            colors (background & strings) for approximating the image. Limit
+            the number of string colors chosen with --auto-color-limit.
+    - auto_color_limit:
+        value_name: "INTEGER"
+        short: "l"
+        long: "auto-color-limit"
+        takes_value: true
+        default_value: "2"
+        help: "Limit the number of colors chosen when using --style=auto-color"
     - hex_color:
         value_name: "HEX_COLOR"
         short: "x"
@@ -106,7 +127,9 @@ args:
         help: >-
             An RGB color in hex format `#RRGGBB` specifying the color of a
             string to use. Can be specified multiple times to specify multiple
-            colors of strings. Implies `--style=colors`.
+            colors of strings.
+
+            Only used when --style is one of 'color-on-black' or 'color-on-white'.
     - verbose:
         short: "v"
         long: "verbose"

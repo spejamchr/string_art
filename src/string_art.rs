@@ -26,6 +26,7 @@ pub fn create_string() {
         "black-on-white" => style::black_on_white(pins, args, &image),
         "color-on-white" => style::color_on_white(pins, args, &image),
         "color-on-black" => style::color_on_black(pins, args, &image),
+        "auto-color" => style::auto_color(pins, args, &image),
         t => panic!("That's not a valid style: {}", t),
     };
 

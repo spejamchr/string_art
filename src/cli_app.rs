@@ -5,7 +5,7 @@ use image::io::Reader as ImageReader;
 /// The validated arguments passed in by the user
 #[derive(Debug, Clone)]
 pub struct Args {
-    image_filepath: String,
+    input_filepath: String,
     pub output_filepath: Option<String>,
     pub pins_filepath: Option<String>,
     pub data_filepath: Option<String>,
@@ -16,8 +16,9 @@ pub struct Args {
     pub pin_count: u32,
     pub pin_arrangement: String,
     pub style: String,
-    pub verbosity: u64,
+    pub auto_color_limit: u32,
     pub rgbs: Vec<RGB>,
+    pub verbosity: u64,
 }
 
 fn string_arg(matches: &ArgMatches, name: &str) -> String {
@@ -63,7 +64,7 @@ pub fn parse_args() -> Args {
     let matches = App::from_yaml(yaml).get_matches();
 
     let args = Args {
-        image_filepath: string_arg(&matches, "image_filepath"),
+        input_filepath: string_arg(&matches, "input_filepath"),
         output_filepath: opt_string_arg(&matches, "output_filepath"),
         pins_filepath: opt_string_arg(&matches, "pins_filepath"),
         data_filepath: opt_string_arg(&matches, "data_filepath"),
@@ -74,8 +75,9 @@ pub fn parse_args() -> Args {
         pin_count: number_arg(&matches, "pin_count"),
         pin_arrangement: string_arg(&matches, "pin_arrangement"),
         style: string_arg(&matches, "style"),
-        verbosity: matches.occurrences_of("verbose"),
+        auto_color_limit: number_arg(&matches, "auto_color_limit"),
         rgbs: parse_rgbs(&matches, "hex_color"),
+        verbosity: matches.occurrences_of("verbose"),
     };
 
     if args.verbosity > 1 {
@@ -87,7 +89,7 @@ pub fn parse_args() -> Args {
 
 impl Args {
     pub fn image(&self) -> image::DynamicImage {
-        ImageReader::open(&self.image_filepath)
+        ImageReader::open(&self.input_filepath)
             .unwrap()
             .decode()
             .expect("Corrupted file")

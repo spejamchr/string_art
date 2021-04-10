@@ -4,7 +4,7 @@ use crate::image::GenericImageView;
 use crate::inout::Data;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RGB {
     pub r: u8,
     pub g: u8,
@@ -31,7 +31,7 @@ impl RGB {
 
 impl std::fmt::Display for RGB {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "[{:>3}, {:>3}, {:>3}]", self.r, self.g, self.b)
+        write!(f, "#{:0>2X}{:0>2X}{:0>2X}", self.r, self.g, self.b)
     }
 }
 
@@ -57,7 +57,7 @@ impl std::ops::Mul<u8> for RGB {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 struct RGBf {
     r: f64,
     g: f64,
