@@ -1,8 +1,7 @@
 use crate::cli_app;
 use crate::generate_pins;
 use crate::inout::ToJsonString;
-use crate::style::color;
-use crate::style::monochrome;
+use crate::style;
 use image::GenericImageView;
 
 // Create an image of the string art and output the knob positions and sequence
@@ -23,10 +22,10 @@ pub fn create_string() {
     let data_filepath_option = args.data_filepath.clone();
 
     let data = match &args.style[..] {
-        "white-on-black" => monochrome::white_on_black(pins, args, &image),
-        "black-on-white" => monochrome::black_on_white(pins, args, &image),
-        "color-on-white" => color::on_white(pins, args, &image),
-        "color-on-black" => color::on_black(pins, args, &image),
+        "white-on-black" => style::white_on_black(pins, args, &image),
+        "black-on-white" => style::black_on_white(pins, args, &image),
+        "color-on-white" => style::color_on_white(pins, args, &image),
+        "color-on-black" => style::color_on_black(pins, args, &image),
         t => panic!("That's not a valid style: {}", t),
     };
 
