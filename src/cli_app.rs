@@ -5,7 +5,7 @@ use image::io::Reader as ImageReader;
 /// The validated arguments passed in by the user
 #[derive(Debug, Clone)]
 pub struct Args {
-    input_filepath: String,
+    pub input_filepath: String,
     pub output_filepath: Option<String>,
     pub pins_filepath: Option<String>,
     pub data_filepath: Option<String>,
