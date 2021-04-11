@@ -242,6 +242,8 @@ fn implementation(
     let height = ref_image.height();
 
     while keep_adding || keep_removing {
+        max_at_once = usize::min(max_at_once, 100);
+
         while keep_adding {
             capture_frame(&line_segments, &mut frames, &args, width, height);
 
