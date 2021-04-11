@@ -278,27 +278,35 @@ fn implementation(
             }
         }
 
-        let tenth = usize::max(1, max_at_once / 10);
-        max_at_once = usize::max(1, max_at_once.saturating_sub(tenth));
+        max_at_once = usize::max(1, (max_at_once as f64 * 0.9) as usize);
 
         while keep_removing {
             capture_frame(&line_segments, &mut frames, &args, width, height);
 
             keep_removing = false;
 
-            if let Some((i, s)) = optimum::find_worst_point(
+            let mut worst_points = optimum::find_worst_points(
                 &line_segments,
                 &ref_image,
                 args.step_size,
                 args.string_alpha,
-            ) {
+                // Find these more accurately by finding fewer at once. Saves time overall by
+                // preventing strings from bouncing back and forth between added and removed.
+                usize::min(line_segments.len(), usize::max(1, max_at_once / 10)),
+            );
+            worst_points.sort_unstable_by_key(|(i, _)| *i);
+            worst_points.reverse();
+
+            if !worst_points.is_empty() {
                 keep_removing = true;
                 keep_adding = true;
+            }
 
+            worst_points.into_iter().for_each(|(i, s)| {
                 let (a, b, rgb) = line_segments.remove(i);
                 ref_image.subtract_line(((a, b), rgb, args.step_size, args.string_alpha));
                 log_removed_points(args.verbosity, line_segments.len(), s, a, b, rgb);
-            }
+            });
 
             if line_segments.is_empty() {
                 keep_removing = false
