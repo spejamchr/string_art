@@ -6,6 +6,8 @@ use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
+// Calculating the list of all possible lines is expensive, so find many good points at once
+// (sacrificing accuracy).
 pub fn find_best_points(
     pins: &[Point],
     ref_image: &RefImage,
@@ -33,14 +35,15 @@ pub fn find_best_points(
     lines.into_iter().take(max).collect()
 }
 
-pub fn find_worst_points(
+// Finding the worst line in the (relatively) small list of chosen lines is easy, so do it
+// accurately.
+pub fn find_worst_point(
     points: &[(Point, Point, RGB)],
     ref_image: &RefImage,
     step_size: f64,
     string_alpha: f64,
-    max: usize,
-) -> Vec<(usize, i64)> {
-    let mut lines = points
+) -> Option<(usize, i64)> {
+    points
         .par_iter()
         .enumerate()
         .map(|(i, (a, b, rgb))| {
@@ -50,9 +53,7 @@ pub fn find_worst_points(
             )
         })
         .filter(|(_, s)| *s < 0)
-        .collect::<Vec<_>>();
-    lines.sort_unstable_by_key(|(_, s)| *s);
-    lines.into_iter().take(max).collect()
+        .min_by_key(|(_, s)| *s)
 }
 
 /// The change in a RefImage's score when adding a Line

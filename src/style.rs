@@ -277,28 +277,19 @@ fn implementation(
 
             keep_removing = false;
 
-            let mut worst_points = optimum::find_worst_points(
+            if let Some((i, s)) = optimum::find_worst_point(
                 &line_segments,
                 &ref_image,
                 args.step_size,
                 args.string_alpha,
-                usize::min(line_segments.len(), max_at_once),
-            );
-            worst_points.sort_unstable_by_key(|(i, _)| *i);
-            worst_points.reverse();
-
-            if !worst_points.is_empty() {
+            ) {
                 keep_removing = true;
                 keep_adding = true;
-            }
 
-            worst_points.into_iter().for_each(|(i, s)| {
                 let (a, b, rgb) = line_segments.remove(i);
                 ref_image.subtract_line(((a, b), rgb, args.step_size, args.string_alpha));
-                keep_removing = true;
-                keep_adding = true;
                 log_removed_points(args.verbosity, line_segments.len(), s, a, b, rgb);
-            });
+            }
 
             if line_segments.is_empty() {
                 keep_removing = false
