@@ -261,6 +261,10 @@ fn implementation(
                 keep_adding = true;
             }
 
+            if points.len() == max_at_once {
+                max_at_once = (max_at_once as f64 * 1.1) as usize
+            }
+
             points.into_iter().for_each(|((a, b, rgb), s)| {
                 ref_image.add_line(((a, b), rgb, args.step_size, args.string_alpha));
                 line_segments.push((a, b, rgb));
@@ -271,6 +275,9 @@ fn implementation(
                 keep_adding = false
             }
         }
+
+        let tenth = usize::max(1, max_at_once / 10);
+        max_at_once = usize::max(1, max_at_once.saturating_sub(tenth));
 
         while keep_removing {
             capture_frame(&line_segments, &mut frames, &args, width, height);
@@ -295,9 +302,6 @@ fn implementation(
                 keep_removing = false
             }
         }
-
-        let tenth = usize::max(1, max_at_once / 10);
-        max_at_once = usize::max(1, max_at_once.saturating_sub(tenth));
     }
 
     capture_frame(&line_segments, &mut frames, &args, width, height);
