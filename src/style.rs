@@ -28,7 +28,7 @@ pub fn auto_color(pin_locations: Vec<Point>, mut args: Args, img: &DynamicImage)
         );
     }
 
-    if background == RGB::white() {
+    if background == RGB::WHITE {
         if args.verbosity > 0 {
             println!("On a white background");
         }
@@ -79,12 +79,12 @@ fn rank_colors(img: &DynamicImage) -> HashMap<RGB, usize> {
 }
 
 pub fn black_on_white(pin_locations: Vec<Point>, mut args: Args, img: &DynamicImage) -> Data {
-    args.rgbs = vec![RGB::black()];
+    args.rgbs = vec![RGB::BLACK];
     color_on_white(pin_locations, args, img)
 }
 
 pub fn white_on_black(pin_locations: Vec<Point>, mut args: Args, img: &DynamicImage) -> Data {
-    args.rgbs = vec![RGB::white()];
+    args.rgbs = vec![RGB::WHITE];
     color_on_black(pin_locations, args, img)
 }
 

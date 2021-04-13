@@ -14,6 +14,14 @@ pub struct RGB {
 pub type LineSegment = (Point, Point, RGB);
 
 impl RGB {
+    pub const WHITE: Self = RGB {
+        r: 255,
+        g: 255,
+        b: 255,
+    };
+
+    pub const BLACK: Self = RGB { r: 0, g: 0, b: 0 };
+
     pub fn new<T>(r: T, g: T, b: T) -> Self
     where
         T: Into<i64>,
@@ -25,16 +33,8 @@ impl RGB {
         }
     }
 
-    pub fn white() -> Self {
-        Self::new(u8::MAX, u8::MAX, u8::MAX)
-    }
-
-    pub fn black() -> Self {
-        Self::new(u8::MIN, u8::MIN, u8::MIN)
-    }
-
     pub fn inverted(&self) -> Self {
-        Self::white() - *self
+        Self::WHITE - *self
     }
 
     pub fn clamped(&self) -> Self {
@@ -179,7 +179,7 @@ pub struct RefImage(Vec<Vec<RGB>>);
 
 impl RefImage {
     pub fn new(width: u32, height: u32) -> Self {
-        Self(vec![vec![RGB::black(); width as usize]; height as usize])
+        Self(vec![vec![RGB::BLACK; width as usize]; height as usize])
     }
 
     pub fn inverted(mut self) -> Self {
