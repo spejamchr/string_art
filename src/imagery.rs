@@ -11,6 +11,8 @@ pub struct RGB {
     pub b: i64,
 }
 
+pub type LineSegment = (Point, Point, RGB);
+
 impl RGB {
     pub fn new<T>(r: T, g: T, b: T) -> Self
     where
@@ -40,8 +42,8 @@ impl RGB {
     }
 }
 
-fn u8_clamp(n: i64) -> i64 {
-    i64::max(u8::MIN.into(), i64::min(u8::MAX.into(), n))
+fn u8_clamp(n: i64) -> u8 {
+    i64::max(u8::MIN.into(), i64::min(u8::MAX.into(), n)) as u8
 }
 
 impl std::fmt::Display for RGB {
@@ -147,8 +149,8 @@ impl<T: Into<i64>> std::convert::From<(T, T, T)> for RGB {
 pub struct PixLine(HashMap<Point, RGB>);
 
 impl PixLine {
-    pub fn iter(&self) -> std::collections::hash_map::Iter<Point, RGB> {
-        self.0.iter()
+    pub fn into_iter(self) -> std::collections::hash_map::IntoIter<Point, RGB> {
+        self.0.into_iter()
     }
 }
 
@@ -173,36 +175,30 @@ impl<T: Into<Line>> std::convert::From<(T, RGB, f64, f64)> for PixLine {
 }
 
 #[derive(Debug)]
-pub struct RefImage(Vec<Vec<(i64, i64, i64)>>);
+pub struct RefImage(Vec<Vec<RGB>>);
 
 impl RefImage {
     pub fn new(width: u32, height: u32) -> Self {
-        Self(vec![vec![(0, 0, 0); width as usize]; height as usize])
+        Self(vec![vec![RGB::black(); width as usize]; height as usize])
     }
 
     pub fn inverted(mut self) -> Self {
-        let max = u8::MAX as i64;
-        self.0.iter_mut().for_each(|row| {
-            row.iter_mut()
-                .for_each(|v| *v = (max - v.0, max - v.1, max - v.2))
-        });
+        self.0
+            .iter_mut()
+            .for_each(|row| row.iter_mut().for_each(|rgb| *rgb = rgb.inverted()));
         self
     }
 
     pub fn score(&self) -> i64 {
-        self.0
-            .iter()
-            .flatten()
-            .map(|pixel| pixel_score(pixel))
-            .sum()
+        self.0.iter().flatten().map(pixel_score).sum()
     }
 
     pub fn score_change_if_added<T: Into<PixLine>>(&self, line: T) -> i64 {
         line.into()
-            .iter()
+            .into_iter()
             .map(|(p, rgb)| {
                 let a = self[p];
-                let b = (a.0 + rgb.r as i64, a.1 + rgb.g as i64, a.2 + rgb.b as i64);
+                let b = a + rgb;
                 pixel_score(&b) - pixel_score(&a)
             })
             .sum()
@@ -210,10 +206,10 @@ impl RefImage {
 
     pub fn score_change_if_removed<T: Into<PixLine>>(&self, line: T) -> i64 {
         line.into()
-            .iter()
+            .into_iter()
             .map(|(p, rgb)| {
                 let a = self[p];
-                let b = (a.0 - rgb.r as i64, a.1 - rgb.g as i64, a.2 - rgb.b as i64);
+                let b = a - rgb;
                 pixel_score(&b) - pixel_score(&a)
             })
             .sum()
@@ -240,11 +236,11 @@ impl RefImage {
     pub fn color(&self) -> image::RgbaImage {
         let mut img = image::RgbaImage::new(self.width(), self.height());
         for (y, row) in self.0.iter().enumerate() {
-            for (x, p) in row.iter().enumerate() {
+            for (x, rgb) in row.iter().map(|rgb| rgb.clamped()).enumerate() {
                 let pixel = img.get_pixel_mut(x as u32, y as u32);
-                pixel[0] = i64_to_u8_clamped(p.0);
-                pixel[1] = i64_to_u8_clamped(p.1);
-                pixel[2] = i64_to_u8_clamped(p.2);
+                pixel[0] = rgb.r as u8;
+                pixel[1] = rgb.g as u8;
+                pixel[2] = rgb.b as u8;
                 pixel[3] = u8::MAX; // Alpha channel
             }
         }
@@ -252,13 +248,9 @@ impl RefImage {
     }
 }
 
-fn pixel_score((r, g, b): &(i64, i64, i64)) -> i64 {
+fn pixel_score(RGB { r, g, b }: &RGB) -> i64 {
     let m = u8::MAX as i64;
     (m - r).saturating_pow(2) + (m - g).saturating_pow(2) + (m - b).saturating_pow(2)
-}
-
-fn i64_to_u8_clamped(num: i64) -> u8 {
-    i64::max(u8::MIN as i64, i64::min(u8::MAX as i64, num)) as u8
 }
 
 impl<T: Into<PixLine> + Copy> std::convert::From<(&Vec<T>, u32, u32)> for RefImage {
@@ -275,7 +267,7 @@ impl std::convert::From<&DynamicImage> for RefImage {
     fn from(image: &DynamicImage) -> Self {
         let mut ref_image = Self::new(image.width(), image.height());
         image.to_rgb8().enumerate_pixels().for_each(|(x, y, p)| {
-            ref_image[(x, y)] = (p[0].into(), p[1].into(), p[2].into());
+            ref_image[(x, y)] = RGB::new(p[0], p[1], p[2]);
         });
         ref_image
     }
@@ -297,46 +289,36 @@ impl std::convert::From<&Data> for RefImage {
 
 impl<T: Into<PixLine>> std::ops::AddAssign<T> for RefImage {
     fn add_assign(&mut self, pix_line: T) {
-        pix_line.into().iter().for_each(|(p, rgb)| {
-            let pixel = self[p];
-            self[p] = (
-                pixel.0 + rgb.r as i64,
-                pixel.1 + rgb.g as i64,
-                pixel.2 + rgb.b as i64,
-            );
+        pix_line.into().into_iter().for_each(|(p, rgb)| {
+            self[p] = self[p] + rgb;
         })
     }
 }
 
 impl<T: Into<PixLine>> std::ops::SubAssign<T> for RefImage {
     fn sub_assign(&mut self, pix_line: T) {
-        pix_line.into().iter().for_each(|(p, rgb)| {
-            let pixel = self[p];
-            self[p] = (
-                pixel.0 - rgb.r as i64,
-                pixel.1 - rgb.g as i64,
-                pixel.2 - rgb.b as i64,
-            );
+        pix_line.into().into_iter().for_each(|(p, rgb)| {
+            self[p] = self[p] - rgb;
         })
     }
 }
 
-impl std::ops::Index<&Point> for RefImage {
-    type Output = (i64, i64, i64);
-    fn index(&self, point: &Point) -> &Self::Output {
+impl std::ops::Index<Point> for RefImage {
+    type Output = RGB;
+    fn index(&self, point: Point) -> &Self::Output {
         &self.0[point.y as usize][point.x as usize]
     }
 }
 
 impl std::ops::Index<(u32, u32)> for RefImage {
-    type Output = (i64, i64, i64);
+    type Output = RGB;
     fn index(&self, (x, y): (u32, u32)) -> &Self::Output {
         &self.0[y as usize][x as usize]
     }
 }
 
-impl std::ops::IndexMut<&Point> for RefImage {
-    fn index_mut(&mut self, point: &Point) -> &mut Self::Output {
+impl std::ops::IndexMut<Point> for RefImage {
+    fn index_mut(&mut self, point: Point) -> &mut Self::Output {
         &mut self.0[point.y as usize][point.x as usize]
     }
 }

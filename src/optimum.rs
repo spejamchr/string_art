@@ -1,5 +1,6 @@
 use super::geometry::Point;
 use super::imagery::RefImage;
+use crate::imagery::LineSegment;
 use crate::imagery::RGB;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
@@ -12,7 +13,7 @@ pub fn find_best_points(
     string_alpha: f64,
     rgbs: &[RGB],
     max: usize,
-) -> Vec<((Point, Point, RGB), i64)> {
+) -> Vec<(LineSegment, i64)> {
     let mut lines = pins
         .par_iter()
         .enumerate()
@@ -33,7 +34,7 @@ pub fn find_best_points(
 }
 
 pub fn find_worst_points(
-    points: &[(Point, Point, RGB)],
+    points: &[LineSegment],
     ref_image: &RefImage,
     step_size: f64,
     string_alpha: f64,

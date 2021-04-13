@@ -1,6 +1,7 @@
 use crate::cli_app::Args;
 use crate::geometry::Point;
 use crate::image::DynamicImage;
+use crate::imagery::LineSegment;
 use crate::imagery::RefImage;
 use crate::imagery::RGB;
 use crate::inout::Data;
@@ -200,7 +201,7 @@ fn run(
 }
 
 fn capture_frame(
-    line_segments: &[(Point, Point, RGB)],
+    line_segments: &[LineSegment],
     frames: &mut Vec<RefImage>,
     args: &Args,
     width: u32,
@@ -224,8 +225,8 @@ fn implementation(
     ref_image: &mut RefImage,
     pin_locations: &[Point],
     rgbs: &[RGB],
-) -> (Vec<(Point, Point, RGB)>, i64, i64, Vec<RefImage>) {
-    let mut line_segments: Vec<(Point, Point, RGB)> = Vec::new();
+) -> (Vec<LineSegment>, i64, i64, Vec<RefImage>) {
+    let mut line_segments: Vec<LineSegment> = Vec::new();
     let mut keep_adding = true;
     let mut keep_removing = true;
 
