@@ -6,14 +6,21 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RGB {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    pub r: i64,
+    pub g: i64,
+    pub b: i64,
 }
 
 impl RGB {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b }
+    pub fn new<T>(r: T, g: T, b: T) -> Self
+    where
+        T: Into<i64>,
+    {
+        Self {
+            r: r.into(),
+            g: g.into(),
+            b: b.into(),
+        }
     }
 
     pub fn white() -> Self {
@@ -25,30 +32,60 @@ impl RGB {
     }
 
     pub fn inverted(&self) -> Self {
-        Self::new(u8::MAX - self.r, u8::MAX - self.g, u8::MAX - self.b)
+        Self::white() - *self
     }
+
+    pub fn clamped(&self) -> Self {
+        Self::new(u8_clamp(self.r), u8_clamp(self.g), u8_clamp(self.b))
+    }
+}
+
+fn u8_clamp(n: i64) -> i64 {
+    i64::max(u8::MIN.into(), i64::min(u8::MAX.into(), n))
 }
 
 impl std::fmt::Display for RGB {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        write!(f, "#{:0>2X}{:0>2X}{:0>2X}", self.r, self.g, self.b)
+        let rgb = self.clamped();
+        write!(f, "#{:0>2X}{:0>2X}{:0>2X}", rgb.r, rgb.g, rgb.b)
     }
 }
 
-impl std::ops::Add<Self> for RGB {
+impl<T: Into<Self>> std::ops::Add<T> for RGB {
     type Output = Self;
-    fn add(self, rhs: Self) -> Self {
+    fn add(self, rhs: T) -> Self {
+        let rgb = rhs.into();
         Self::new(
-            self.r.saturating_add(rhs.r),
-            self.g.saturating_add(rhs.g),
-            self.b.saturating_add(rhs.b),
+            self.r.saturating_add(rgb.r),
+            self.g.saturating_add(rgb.g),
+            self.b.saturating_add(rgb.b),
         )
     }
 }
 
-impl std::ops::Mul<u8> for RGB {
+impl<T: Into<Self>> std::ops::Sub<T> for RGB {
     type Output = Self;
-    fn mul(self, rhs: u8) -> Self {
+    fn sub(self, rhs: T) -> Self {
+        let rgb = rhs.into();
+        Self::new(
+            self.r.saturating_sub(rgb.r),
+            self.g.saturating_sub(rgb.g),
+            self.b.saturating_sub(rgb.b),
+        )
+    }
+}
+
+// NOTE: This is different from RGB's `inverted()`
+impl std::ops::Neg for RGB {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::new(-self.r, -self.g, -self.b)
+    }
+}
+
+impl std::ops::Mul<i64> for RGB {
+    type Output = Self;
+    fn mul(self, rhs: i64) -> Self {
         Self::new(
             self.r.saturating_mul(rhs),
             self.g.saturating_mul(rhs),
@@ -92,16 +129,17 @@ impl std::convert::From<RGB> for RGBf {
 
 impl std::convert::From<RGBf> for RGB {
     fn from(rgbf: RGBf) -> Self {
-        let r = f64::min(u8::MAX as f64, f64::max(u8::MIN as f64, rgbf.r)) as u8;
-        let g = f64::min(u8::MAX as f64, f64::max(u8::MIN as f64, rgbf.g)) as u8;
-        let b = f64::min(u8::MAX as f64, f64::max(u8::MIN as f64, rgbf.b)) as u8;
-        Self::new(r, g, b)
+        Self::new(
+            rgbf.r.round() as i64,
+            rgbf.g.round() as i64,
+            rgbf.b.round() as i64,
+        )
     }
 }
 
-impl<T: Into<u8>> std::convert::From<(T, T, T)> for RGB {
+impl<T: Into<i64>> std::convert::From<(T, T, T)> for RGB {
     fn from((r, g, b): (T, T, T)) -> Self {
-        RGB::new(r.into(), g.into(), b.into())
+        RGB::new(r, g, b)
     }
 }
 
@@ -151,16 +189,11 @@ impl RefImage {
         self
     }
 
-    fn pixel_score((r, g, b): &(i64, i64, i64)) -> i64 {
-        let m = u8::MAX as i64;
-        (m - r).saturating_pow(2) + (m - g).saturating_pow(2) + (m - b).saturating_pow(2)
-    }
-
     pub fn score(&self) -> i64 {
         self.0
             .iter()
             .flatten()
-            .map(|pixel| Self::pixel_score(pixel))
+            .map(|pixel| pixel_score(pixel))
             .sum()
     }
 
@@ -170,7 +203,7 @@ impl RefImage {
             .map(|(p, rgb)| {
                 let a = self[p];
                 let b = (a.0 + rgb.r as i64, a.1 + rgb.g as i64, a.2 + rgb.b as i64);
-                Self::pixel_score(&b) - Self::pixel_score(&a)
+                pixel_score(&b) - pixel_score(&a)
             })
             .sum()
     }
@@ -181,7 +214,7 @@ impl RefImage {
             .map(|(p, rgb)| {
                 let a = self[p];
                 let b = (a.0 - rgb.r as i64, a.1 - rgb.g as i64, a.2 - rgb.b as i64);
-                Self::pixel_score(&b) - Self::pixel_score(&a)
+                pixel_score(&b) - pixel_score(&a)
             })
             .sum()
     }
@@ -217,6 +250,11 @@ impl RefImage {
         }
         img
     }
+}
+
+fn pixel_score((r, g, b): &(i64, i64, i64)) -> i64 {
+    let m = u8::MAX as i64;
+    (m - r).saturating_pow(2) + (m - g).saturating_pow(2) + (m - b).saturating_pow(2)
 }
 
 fn i64_to_u8_clamped(num: i64) -> u8 {
