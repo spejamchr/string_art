@@ -151,17 +151,37 @@ impl RefImage {
         self
     }
 
-    pub fn score(&self) -> i64 {
+    fn pixel_score((r, g, b): &(i64, i64, i64)) -> i64 {
         let m = u8::MAX as i64;
+        (m - r).saturating_pow(2) + (m - g).saturating_pow(2) + (m - b).saturating_pow(2)
+    }
+
+    pub fn score(&self) -> i64 {
         self.0
             .iter()
             .flatten()
-            .flat_map(|(r, g, b)| {
-                vec![
-                    (m - r).saturating_pow(2),
-                    (m - g).saturating_pow(2),
-                    (m - b).saturating_pow(2),
-                ]
+            .map(|pixel| Self::pixel_score(pixel))
+            .sum()
+    }
+
+    pub fn score_change_if_added<T: Into<PixLine>>(&self, line: T) -> i64 {
+        line.into()
+            .iter()
+            .map(|(p, rgb)| {
+                let a = self[p];
+                let b = (a.0 + rgb.r as i64, a.1 + rgb.g as i64, a.2 + rgb.b as i64);
+                Self::pixel_score(&b) - Self::pixel_score(&a)
+            })
+            .sum()
+    }
+
+    pub fn score_change_if_removed<T: Into<PixLine>>(&self, line: T) -> i64 {
+        line.into()
+            .iter()
+            .map(|(p, rgb)| {
+                let a = self[p];
+                let b = (a.0 - rgb.r as i64, a.1 - rgb.g as i64, a.2 - rgb.b as i64);
+                Self::pixel_score(&b) - Self::pixel_score(&a)
             })
             .sum()
     }

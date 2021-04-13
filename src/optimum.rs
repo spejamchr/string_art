@@ -1,5 +1,4 @@
 use super::geometry::Point;
-use super::imagery::PixLine;
 use super::imagery::RefImage;
 use crate::imagery::RGB;
 use rayon::iter::IndexedParallelIterator;
@@ -23,7 +22,7 @@ pub fn find_best_points(
             rgbs.par_iter().map(move |rgb| {
                 (
                     (*a, *b, *rgb),
-                    line_score(((*a, *b), *rgb, step_size, string_alpha), &ref_image),
+                    ref_image.score_change_if_added(((*a, *b), *rgb, step_size, string_alpha)),
                 )
             })
         })
@@ -46,51 +45,11 @@ pub fn find_worst_points(
         .map(|(i, (a, b, rgb))| {
             (
                 i,
-                line_removal_score(((*a, *b), *rgb, step_size, string_alpha), &ref_image),
+                ref_image.score_change_if_removed(((*a, *b), *rgb, step_size, string_alpha)),
             )
         })
         .filter(|(_, s)| *s < 0)
         .collect::<Vec<_>>();
     lines.sort_unstable_by_key(|(_, s)| *s);
     lines.into_iter().take(max).collect()
-}
-
-/// The change in a RefImage's score when adding a Line
-fn line_score<T: Into<PixLine>>(line: T, image: &RefImage) -> i64 {
-    let m = u8::MAX as i64;
-    line.into()
-        .iter()
-        .map(|(p, rgb)| {
-            let a = image[p];
-            let a = [a.0, a.1, a.2];
-            let b = [
-                a[0] + rgb.r as i64,
-                a[1] + rgb.g as i64,
-                a[2] + rgb.b as i64,
-            ];
-            let b = b.iter().map(|n| (m - n).saturating_pow(2)).sum::<i64>();
-            let a = a.iter().map(|n| (m - n).saturating_pow(2)).sum::<i64>();
-            b - a
-        })
-        .sum::<i64>()
-}
-
-/// The change in a RefImage's score when removing a Line
-fn line_removal_score<T: Into<PixLine>>(line: T, image: &RefImage) -> i64 {
-    let m = u8::MAX as i64;
-    line.into()
-        .iter()
-        .map(|(p, rgb)| {
-            let a = image[p];
-            let a = [a.0, a.1, a.2];
-            let b = [
-                a[0] - rgb.r as i64,
-                a[1] - rgb.g as i64,
-                a[2] - rgb.b as i64,
-            ];
-            let b = b.iter().map(|n| (m - n).saturating_pow(2)).sum::<i64>();
-            let a = a.iter().map(|n| (m - n).saturating_pow(2)).sum::<i64>();
-            b - a
-        })
-        .sum::<i64>()
 }
