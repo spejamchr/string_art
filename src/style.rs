@@ -317,7 +317,8 @@ fn implementation(
         }
     }
 
-    capture_frame(&line_segments, &mut frames, &args, width, height);
+    // Pause on the last frame
+    (0..10).for_each(|_| capture_frame(&line_segments, &mut frames, &args, width, height));
 
     let final_score = ref_image.score();
     if args.verbosity > 1 {
