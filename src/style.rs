@@ -236,14 +236,16 @@ fn implementation(
         println!("Initial score: {} (lower is better)", initial_score);
     }
 
-    let mut max_at_once = usize::min(args.max_strings / 10, 100);
+    let mut cap = 100;
+    let mut max_at_once = usize::min(args.max_strings / 10, cap);
 
     let mut frames = Vec::new();
     let width = ref_image.width();
     let height = ref_image.height();
 
     while keep_adding || keep_removing {
-        max_at_once = usize::min(max_at_once, 100);
+        max_at_once = usize::min(max_at_once, cap);
+        cap -= 1;
 
         while keep_adding {
             capture_frame(&line_segments, &mut frames, &args, width, height);
