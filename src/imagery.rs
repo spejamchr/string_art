@@ -145,6 +145,12 @@ impl<T: Into<i64>> std::convert::From<(T, T, T)> for RGB {
     }
 }
 
+impl<T: Into<i64>> std::convert::From<[T; 3]> for RGB {
+    fn from([r, g, b]: [T; 3]) -> Self {
+        RGB::new(r, g, b)
+    }
+}
+
 /// Line of pixels
 pub struct PixLine(HashMap<Point, RGB>);
 
@@ -249,8 +255,7 @@ impl RefImage {
 }
 
 fn pixel_score(RGB { r, g, b }: &RGB) -> i64 {
-    let m = u8::MAX as i64;
-    (m - r).saturating_pow(2) + (m - g).saturating_pow(2) + (m - b).saturating_pow(2)
+    r * r + g * g + b * b
 }
 
 impl<T: Into<PixLine> + Copy> std::convert::From<(&Vec<T>, u32, u32)> for RefImage {
@@ -263,11 +268,11 @@ impl<T: Into<PixLine> + Copy> std::convert::From<(&Vec<T>, u32, u32)> for RefIma
     }
 }
 
-impl std::convert::From<&DynamicImage> for RefImage {
-    fn from(image: &DynamicImage) -> Self {
+impl std::convert::From<DynamicImage> for RefImage {
+    fn from(image: DynamicImage) -> Self {
         let mut ref_image = Self::new(image.width(), image.height());
         image.to_rgb8().enumerate_pixels().for_each(|(x, y, p)| {
-            ref_image[(x, y)] = RGB::new(p[0], p[1], p[2]);
+            ref_image[(x, y)] = -RGB::from(p.0);
         });
         ref_image
     }

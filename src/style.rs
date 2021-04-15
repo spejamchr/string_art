@@ -12,8 +12,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::time::Instant;
 
-pub fn auto_color(pin_locations: Vec<Point>, mut args: Args, img: &DynamicImage) -> Data {
-    let ranked_colors = rank_colors(img);
+pub fn auto_color(pin_locations: Vec<Point>, mut args: Args, img: DynamicImage) -> Data {
+    let ranked_colors = rank_colors(&img);
     let background = extract_background_color(&ranked_colors);
     args.rgbs = choose_rgbs(ranked_colors, &background, &args);
 
@@ -78,24 +78,25 @@ fn rank_colors(img: &DynamicImage) -> HashMap<RGB, usize> {
         })
 }
 
-pub fn black_on_white(pin_locations: Vec<Point>, mut args: Args, img: &DynamicImage) -> Data {
+pub fn black_on_white(pin_locations: Vec<Point>, mut args: Args, img: DynamicImage) -> Data {
     args.rgbs = vec![RGB::BLACK];
     color_on_white(pin_locations, args, img)
 }
 
-pub fn white_on_black(pin_locations: Vec<Point>, mut args: Args, img: &DynamicImage) -> Data {
+pub fn white_on_black(pin_locations: Vec<Point>, mut args: Args, img: DynamicImage) -> Data {
     args.rgbs = vec![RGB::WHITE];
     color_on_black(pin_locations, args, img)
 }
 
-pub fn color_on_white(pin_locations: Vec<Point>, args: Args, img: &DynamicImage) -> Data {
+pub fn color_on_white(pin_locations: Vec<Point>, args: Args, mut img: DynamicImage) -> Data {
+    img.invert();
     let colors = args
         .rgbs
         .iter()
         .map(|rgb| rgb.inverted())
         .collect::<Vec<_>>();
 
-    let (data, frames) = run(args, &mut img.into(), pin_locations, &colors);
+    let (data, frames) = run(args, img.into(), pin_locations, &colors);
 
     if let Some(ref filepath) = data.args.output_filepath {
         RefImage::from(&data)
@@ -112,11 +113,10 @@ pub fn color_on_white(pin_locations: Vec<Point>, args: Args, img: &DynamicImage)
     data
 }
 
-pub fn color_on_black(pin_locations: Vec<Point>, args: Args, img: &DynamicImage) -> Data {
+pub fn color_on_black(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
     let colors = args.rgbs.clone();
-    let ref_image: RefImage = img.into();
 
-    let (data, frames) = run(args, &mut ref_image.inverted(), pin_locations, &colors);
+    let (data, frames) = run(args, img.into(), pin_locations, &colors);
 
     if let Some(ref filepath) = data.args.output_filepath {
         RefImage::from(&data).color().save(filepath).unwrap();
@@ -175,7 +175,7 @@ fn log_removed_points(
 
 fn run(
     args: Args,
-    ref_image: &mut RefImage,
+    ref_image: RefImage,
     pin_locations: Vec<Point>,
     rgbs: &[RGB],
 ) -> (Data, Vec<RefImage>) {
@@ -224,7 +224,7 @@ fn capture_frame(
 
 fn implementation(
     args: &Args,
-    ref_image: &mut RefImage,
+    mut ref_image: RefImage,
     pin_locations: &[Point],
     rgbs: &[RGB],
 ) -> (Vec<LineSegment>, i64, i64, Vec<RefImage>) {
