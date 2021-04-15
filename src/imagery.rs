@@ -167,14 +167,14 @@ impl<T: Into<Line>> std::convert::From<(T, RGB, f64, f64)> for PixLine {
             line.into()
                 .iter(step_size)
                 .map(Point::from)
-                .fold(HashMap::new(), |mut a, p| {
-                    if let Some(old) = a.insert(p, coloring_val) {
-                        a.insert(p, old + coloring_val);
+                .fold(HashMap::new(), |mut hash, point| {
+                    if let Some(old) = hash.insert(point, coloring_val) {
+                        hash.insert(point, old + coloring_val);
                     }
-                    a
+                    hash
                 })
                 .into_iter()
-                .map(|(p, v)| (p, RGB::from(v)))
+                .map(|(point, rgbf)| (point, RGB::from(rgbf)))
                 .collect::<HashMap<_, _>>(),
         )
     }
@@ -294,16 +294,16 @@ impl std::convert::From<&Data> for RefImage {
 
 impl<T: Into<PixLine>> std::ops::AddAssign<T> for RefImage {
     fn add_assign(&mut self, pix_line: T) {
-        pix_line.into().into_iter().for_each(|(p, rgb)| {
-            self[p] = self[p] + rgb;
+        pix_line.into().into_iter().for_each(|(point, rgb)| {
+            self[point] = self[point] + rgb;
         })
     }
 }
 
 impl<T: Into<PixLine>> std::ops::SubAssign<T> for RefImage {
     fn sub_assign(&mut self, pix_line: T) {
-        pix_line.into().into_iter().for_each(|(p, rgb)| {
-            self[p] = self[p] - rgb;
+        pix_line.into().into_iter().for_each(|(point, rgb)| {
+            self[point] = self[point] - rgb;
         })
     }
 }
