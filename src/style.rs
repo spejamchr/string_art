@@ -134,7 +134,9 @@ where
     F: Fn(RefImage) -> image::RgbaImage,
 {
     let file_out = File::create(gif_filepath).unwrap();
-    GifEncoder::new_with_speed(file_out, 10)
+    let mut encoder = GifEncoder::new_with_speed(file_out, 10);
+    encoder.set_repeat(image::gif::Repeat::Infinite).unwrap();
+    encoder
         .encode_frames(frames.into_iter().map(map).map(Frame::new))
         .unwrap();
 }
