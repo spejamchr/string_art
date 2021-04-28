@@ -57,12 +57,12 @@ pub struct Line(Vector, Vector);
 
 impl Line {
     pub fn iter(&self, step_size: f64) -> LineIter {
-        let basis = (self.1 - self.0).basis();
+        let step = (self.1 - self.0).basis() * step_size;
         let current = self.0;
         let distance = (self.1 - self.0).len();
 
         LineIter {
-            basis,
+            step,
             current,
             distance,
             step_size,
@@ -84,7 +84,7 @@ impl<T: Into<Vector>, A> std::convert::From<(T, T, A)> for Line {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LineIter {
-    basis: Vector,
+    step: Vector,
     current: Vector,
     distance: f64,
     step_size: f64,
@@ -95,7 +95,7 @@ impl Iterator for LineIter {
     fn next(&mut self) -> std::option::Option<<Self as std::iter::Iterator>::Item> {
         if self.distance >= 0.0 {
             let current = self.current;
-            self.current = self.current + self.basis * self.step_size;
+            self.current = self.current + self.step;
             self.distance -= self.step_size;
             Some(current)
         } else {
