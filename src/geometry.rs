@@ -5,20 +5,16 @@ pub struct Vector {
 }
 
 impl Vector {
-    pub fn new(x: f64, y: f64) -> Self {
+    fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }
 
-    pub fn len(&self) -> f64 {
+    fn len(&self) -> f64 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    pub fn basis(&self) -> Self {
+    fn basis(&self) -> Self {
         *self / self.len()
-    }
-
-    pub fn dist(&self, other: &Self) -> f64 {
-        (*other - *self).len()
     }
 }
 
@@ -63,7 +59,7 @@ impl Line {
     pub fn iter(&self, step_size: f64) -> LineIter {
         let basis = (self.1 - self.0).basis();
         let current = self.0;
-        let distance = self.0.dist(&self.1);
+        let distance = (self.1 - self.0).len();
 
         LineIter {
             basis,
@@ -136,10 +132,60 @@ impl std::convert::From<Vector> for Point {
 mod test {
     use super::*;
 
+    fn v(a: f64, b: f64) -> Vector {
+        Vector::new(a, b)
+    }
+
+    fn origin() -> Vector {
+        v(0.0, 0.0)
+    }
+
+    fn a() -> Vector {
+        v(3.0, 4.0)
+    }
+
+    fn b() -> Vector {
+        v(6.0, 0.0)
+    }
+
     #[test]
     fn test_line_iter() {
-        let line = Line(Vector::new(0.0, 0.0), Vector::new(3.0, 4.0));
+        let line = Line(origin(), a());
         let iter = line.iter(1.0);
         assert_eq!(6, iter.count());
+    }
+
+    #[test]
+    fn test_vector_len() {
+        assert_eq!(5.0, a().len());
+        assert_eq!(6.0, b().len());
+    }
+
+    #[test]
+    fn test_vector_basis() {
+        assert_eq!(v(1.0, 0.0), b().basis());
+    }
+
+    #[test]
+    fn test_vector_add() {
+        assert_eq!(v(9.0, 4.0), a() + b());
+    }
+    #[test]
+    fn test_vector_sub() {
+        assert_eq!(v(-3.0, 4.0), a() - b());
+    }
+    #[test]
+    fn test_vector_mul() {
+        assert_eq!(v(6.0, 8.0), a() * 2.0);
+    }
+
+    #[test]
+    fn test_vector_div() {
+        assert_eq!(v(2.0, 0.0), b() / 3.0);
+    }
+
+    #[test]
+    fn test_vector_from_point() {
+        assert_eq!(v(2.0, 3.0), Vector::from(Point::new(2, 3)));
     }
 }
