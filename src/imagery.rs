@@ -33,10 +33,6 @@ impl RGB {
         }
     }
 
-    pub fn inverted(&self) -> Self {
-        Self::WHITE - *self
-    }
-
     pub fn clamped(&self) -> Self {
         Self::new(u8_clamp(self.r), u8_clamp(self.g), u8_clamp(self.b))
     }
@@ -77,7 +73,6 @@ impl<T: Into<Self>> std::ops::Sub<T> for RGB {
     }
 }
 
-// NOTE: This is different from RGB's `inverted()`
 impl std::ops::Neg for RGB {
     type Output = Self;
     fn neg(self) -> Self {
@@ -188,10 +183,17 @@ impl RefImage {
         Self(vec![vec![RGB::BLACK; width as usize]; height as usize])
     }
 
-    pub fn inverted(mut self) -> Self {
+    pub fn negated(mut self) -> Self {
         self.0
             .iter_mut()
-            .for_each(|row| row.iter_mut().for_each(|rgb| *rgb = rgb.inverted()));
+            .for_each(|row| row.iter_mut().for_each(|rgb| *rgb = -*rgb));
+        self
+    }
+
+    pub fn add_rgb(mut self, other: RGB) -> Self {
+        self.0
+            .iter_mut()
+            .for_each(|row| row.iter_mut().for_each(|rgb| *rgb = *rgb + other));
         self
     }
 
@@ -272,7 +274,7 @@ impl std::convert::From<DynamicImage> for RefImage {
     fn from(image: DynamicImage) -> Self {
         let mut ref_image = Self::new(image.width(), image.height());
         image.to_rgb8().enumerate_pixels().for_each(|(x, y, p)| {
-            ref_image[(x, y)] = -RGB::from(p.0);
+            ref_image[(x, y)] = RGB::from(p.0);
         });
         ref_image
     }

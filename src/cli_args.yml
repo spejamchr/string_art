@@ -87,51 +87,55 @@ args:
             Should the pins be arranged on the image's perimeter, or in a grid
             across the entire image, or in the largest possible centered
             circle, or scattered randomly?
-    - style:
-        value_name: "STYLE"
-        short: "t"
-        long: "style"
-        takes_value: true
-        possible_values:
-            - "white-on-black"
-            - "black-on-white"
-            - "color-on-black"
-            - "color-on-white"
-            - "auto-color"
-        default_value: "white-on-black"
-        help: >-
-            The style of image to create.
-
-                [White|Black|Color] threads on [White|Black] background.
-                Automatically pick all colors.
-
-            When using color threads, pass the desired colors with the
-            --hex-color argument.
-
-            When using 'auto-color', the program will try to detect the best
-            colors (background & strings) for approximating the image. Limit
-            the number of string colors chosen with --auto-color-limit.
-    - auto_color_limit:
-        value_name: "INTEGER"
-        short: "l"
-        long: "auto-color-limit"
-        takes_value: true
-        default_value: "2"
-        help: "Limit the number of colors chosen when using --style=auto-color"
-    - hex_color:
+    - background_color:
         value_name: "HEX_COLOR"
-        short: "x"
-        long: "hex-color"
+        short: "b"
+        long: "background-color"
+        takes_value: true
+        default_value: "#000000"
+        help: >-
+            An RGB color in hex format `#RRGGBB` specifying the color of the
+            background.
+    - foreground_color:
+        value_name: "HEX_COLOR"
+        short: "f"
+        long: "foreground-color"
         takes_value: true
         multiple: true
+        default_value: "#FFFFFF"
         help: >-
             An RGB color in hex format `#RRGGBB` specifying the color of a
             string to use. Can be specified multiple times to specify multiple
             colors of strings.
+    - white_on_black:
+        long: "white-on-black"
+        help: "Draw with white string on a black background"
+    - black_on_white:
+        long: "black-on-white"
+        help: "Draw with black string on a white background"
+    - auto_color:
+        value_name: "INTEGER"
+        long: "auto-color"
+        takes_value: true
+        help: >-
+            Draw with this many automatically chosen foreground colors on an
+            automatically chosen background color.
 
-            Only used when --style is one of 'color-on-black' or 'color-on-white'.
+            If --background-color is provided, use that.
+
+            If --foreground-color is provided, use that in addition to this
+            many additional automatically chosen foreground colors.
     - verbose:
         short: "v"
         long: "verbose"
         multiple: true
         help: "Output debugging messages."
+
+groups:
+    - grayscale:
+        args:
+            - white_on_black
+            - black_on_white
+        conflicts_with:
+            - foreground_color
+            - background_color

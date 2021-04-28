@@ -1,5 +1,6 @@
 use super::cli_app::Args;
 use super::geometry::Point;
+use crate::cli_app::Style;
 use crate::imagery::LineSegment;
 use crate::imagery::RGB;
 
@@ -10,19 +11,19 @@ pub trait ToJsonString {
 impl ToJsonString for Args {
     fn to_json_string(&self) -> String {
         format!(
-            r#"{{"max_strings":{},"step_size":{},"string_alpha":{},"pin_count":{},"pin_arrangement":"{}","style":"{}","auto_color_limit":{},"rgbs":[{}],"verbosity":{},"input_filepath":"{}","output_filepath":{},"pins_filepath":{},"data_filepath":{},"gif_filepath":{}}}"#,
+            r#"{{"max_strings":{},"step_size":{},"string_alpha":{},"pin_count":{},"pin_arrangement":"{}","style":{},"foreground_colors":[{}],"background_color":"{}","verbosity":{},"input_filepath":"{}","output_filepath":{},"pins_filepath":{},"data_filepath":{},"gif_filepath":{}}}"#,
             self.max_strings,
             self.step_size,
             self.string_alpha,
             self.pin_count,
             self.pin_arrangement,
-            self.style,
-            self.auto_color_limit,
-            self.rgbs
+            self.style.to_json_string(),
+            self.foreground_colors
                 .iter()
                 .map(|p| format!(r#""{}""#, p))
                 .collect::<Vec<_>>()
                 .join(","),
+            self.background_color,
             self.verbosity,
             self.input_filepath,
             self.output_filepath.to_json_string(),
@@ -30,6 +31,22 @@ impl ToJsonString for Args {
             self.data_filepath.to_json_string(),
             self.gif_filepath.to_json_string(),
         )
+    }
+}
+
+impl ToJsonString for Style {
+    fn to_json_string(&self) -> String {
+        match self {
+            Style::Manual => r#"{{"kind":"manual"}}"#.to_string(),
+            Style::WhiteOnBlack => r#"{{"kind":"white-on-black"}}"#.to_string(),
+            Style::BlackOnWhite => r#"{{"kind":"black-on-white"}}"#.to_string(),
+            Style::AutoColor { auto_fg_count, .. } => {
+                format!(
+                    r#"{{"kind":"auto-color","auto-fg-count":{}}}"#,
+                    auto_fg_count
+                )
+            }
+        }
     }
 }
 

@@ -1,7 +1,19 @@
 use super::geometry::Point;
 use rand::RngCore;
 
-pub fn perimeter(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
+pub fn generate(pin_arrangement: &str, desired_count: u32, width: u32, height: u32) -> Vec<Point> {
+    let generator = match pin_arrangement {
+        "perimeter" => perimeter,
+        "grid" => grid,
+        "circle" => circle,
+        "random" => random,
+        a => panic!("That's not a valid pin arrangement: {}", a),
+    };
+
+    generator(desired_count, width, height)
+}
+
+fn perimeter(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
     let desired_count = u32::max(4, desired_count);
     let spacingf = f64::max(
         1.0,
@@ -30,7 +42,7 @@ fn f_mul(i: u32, f: f64) -> u32 {
     (i as f64 * f) as u32
 }
 
-pub fn grid(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
+fn grid(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
     let r = width as f64 / height as f64;
     let x = (desired_count as f64 * r).sqrt().round() as usize;
     let y = (desired_count as f64 / r).sqrt().round() as usize;
@@ -51,7 +63,7 @@ pub fn grid(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
         .collect()
 }
 
-pub fn random(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
+fn random(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
     let mut rng = rand::thread_rng();
     (0..desired_count)
         .map(|_| (rng.next_u32() % width, rng.next_u32() % height))
@@ -59,7 +71,7 @@ pub fn random(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
         .collect()
 }
 
-pub fn circle(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
+fn circle(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
     let center_x = (width - 1) as f64 / 2.0;
     let center_y = (height - 1) as f64 / 2.0;
     let radius = f64::min(center_x, center_y);

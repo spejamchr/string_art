@@ -8,122 +8,38 @@ use crate::inout::Data;
 use crate::optimum;
 use image::gif::GifEncoder;
 use image::Frame;
-use std::collections::HashMap;
 use std::fs::File;
 use std::time::Instant;
 
-pub fn auto_color(pin_locations: Vec<Point>, mut args: Args, img: DynamicImage) -> Data {
-    let ranked_colors = rank_colors(&img);
-    let background = extract_background_color(&ranked_colors);
-    args.rgbs = choose_rgbs(ranked_colors, &background, &args);
-
-    if args.verbosity > 0 {
-        println!(
-            "Using colors {}",
-            args.rgbs
-                .iter()
-                .map(|p| format!("{}", p))
-                .collect::<Vec<_>>()
-                .join(", ")
-        );
-    }
-
-    if background == RGB::WHITE {
-        if args.verbosity > 0 {
-            println!("On a white background");
-        }
-        color_on_white(pin_locations, args, img)
-    } else {
-        if args.verbosity > 0 {
-            println!("On a black background");
-        }
-        color_on_black(pin_locations, args, img)
-    }
-}
-
-fn choose_rgbs(ranked_colors: HashMap<RGB, usize>, background: &RGB, args: &Args) -> Vec<RGB> {
-    let mut rgbs = ranked_colors.into_iter().collect::<Vec<_>>();
-    rgbs.sort_unstable_by_key(|(_, c)| *c);
-    rgbs.reverse();
-    rgbs.into_iter()
-        .map(|(rgb, _)| rgb)
-        .filter(|rgb| rgb != background)
-        .take(args.auto_color_limit as usize)
-        .collect()
-}
-
-fn extract_background_color(ranking: &HashMap<RGB, usize>) -> RGB {
-    let tmp_ranking = ranking.clone();
-    let mut wb = tmp_ranking
-        .iter()
-        .filter(|(rgb, _)| rgb.r == rgb.g && rgb.g == rgb.b)
-        .collect::<Vec<_>>();
-    wb.sort_unstable_by_key(|(_, c)| *c);
-    wb.reverse();
-    let (background, _) = wb[0];
-    *background
-}
-
-fn rank_colors(img: &DynamicImage) -> HashMap<RGB, usize> {
-    img.adjust_contrast(1500.0)
-        .to_rgb8()
-        .pixels()
-        .map(|p| p.0)
-        .map(|[r, g, b]| RGB::new(r, g, b))
-        .fold(HashMap::new(), |mut h, p| {
-            if let Some(old) = h.insert(p, 1) {
-                h.insert(p, old + 1);
-            }
-            h
-        })
-}
-
-pub fn black_on_white(pin_locations: Vec<Point>, mut args: Args, img: DynamicImage) -> Data {
-    args.rgbs = vec![RGB::BLACK];
-    color_on_white(pin_locations, args, img)
-}
-
-pub fn white_on_black(pin_locations: Vec<Point>, mut args: Args, img: DynamicImage) -> Data {
-    args.rgbs = vec![RGB::WHITE];
-    color_on_black(pin_locations, args, img)
-}
-
-pub fn color_on_white(pin_locations: Vec<Point>, args: Args, mut img: DynamicImage) -> Data {
-    img.invert();
+//  Regular      Negated     Negated w/BG     From Data   From Data w/BG
+// |   |  *|    |*  |   |      |  *|   |      |   |*  |      |   |  *|
+// |   | * |    | * |   |      |   *   |      |   *   |      |   | * |
+// |   *   |    |   *   |      |   | * |      | * |   |      |   *   |
+// |   |  *|    |*  |   |      |  *|   |      |   |*  |      |   |  *|
+//
+pub fn color_on_custom_a(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
+    let mut ref_image: RefImage = img.into();
+    ref_image = ref_image.negated().add_rgb(args.background_color);
     let colors = args
-        .rgbs
+        .foreground_colors
         .iter()
-        .map(|rgb| rgb.inverted())
+        .map(|rgb| *rgb - args.background_color)
         .collect::<Vec<_>>();
 
-    let (data, frames) = run(args, img.into(), pin_locations, &colors);
+    let (data, frames) = run(args, ref_image, pin_locations, &colors);
 
     if let Some(ref filepath) = data.args.output_filepath {
         RefImage::from(&data)
-            .inverted()
+            .add_rgb(data.args.background_color)
             .color()
             .save(filepath)
             .unwrap();
     }
 
     if let Some(gif_filepath) = &data.args.gif_filepath {
-        save_gif(gif_filepath, frames, |r| r.inverted().color());
-    }
-
-    data
-}
-
-pub fn color_on_black(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
-    let colors = args.rgbs.clone();
-
-    let (data, frames) = run(args, img.into(), pin_locations, &colors);
-
-    if let Some(ref filepath) = data.args.output_filepath {
-        RefImage::from(&data).color().save(filepath).unwrap();
-    }
-
-    if let Some(gif_filepath) = &data.args.gif_filepath {
-        save_gif(gif_filepath, frames, |r| r.color());
+        save_gif(gif_filepath, frames, |r| {
+            r.add_rgb(data.args.background_color).color()
+        });
     }
 
     data
@@ -141,15 +57,9 @@ where
         .unwrap();
 }
 
-fn log_added_points(
-    verbosity: u64,
-    pin_len: usize,
-    score_change: i64,
-    a: Point,
-    b: Point,
-    rgb: RGB,
-) {
-    if verbosity > 0 {
+fn log_added_points(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: RGB) {
+    if args.verbosity > 0 {
+        let rgb = rgb + args.background_color;
         println!(
             "[{:>6}]:   score change: {:>10}     added  {} to {} with {}",
             pin_len, score_change, a, b, rgb
@@ -158,14 +68,15 @@ fn log_added_points(
 }
 
 fn log_removed_points(
-    verbosity: u64,
+    args: &Args,
     pin_len: usize,
     score_change: i64,
     a: Point,
     b: Point,
     rgb: RGB,
 ) {
-    if verbosity > 0 {
+    if args.verbosity > 0 {
+        let rgb = rgb + args.background_color;
         println!(
             "[{:>6}]:   score change: {:>10}    removed {} to {} with {}",
             pin_len, score_change, a, b, rgb
@@ -275,7 +186,7 @@ fn implementation(
             points.into_iter().for_each(|((a, b, rgb), s)| {
                 ref_image.add_line(((a, b), rgb, args.step_size, args.string_alpha));
                 line_segments.push((a, b, rgb));
-                log_added_points(args.verbosity, line_segments.len(), s, a, b, rgb);
+                log_added_points(args, line_segments.len(), s, a, b, rgb);
             });
 
             if line_segments.len() >= args.max_strings {
@@ -310,7 +221,7 @@ fn implementation(
             worst_points.into_iter().for_each(|(i, s)| {
                 let (a, b, rgb) = line_segments.remove(i);
                 ref_image.subtract_line(((a, b), rgb, args.step_size, args.string_alpha));
-                log_removed_points(args.verbosity, line_segments.len(), s, a, b, rgb);
+                log_removed_points(args, line_segments.len(), s, a, b, rgb);
             });
 
             if line_segments.is_empty() {
