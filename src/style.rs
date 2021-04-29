@@ -1,6 +1,6 @@
 use crate::cli_app::Args;
 use crate::geometry::Point;
-use crate::image::DynamicImage;
+use crate::image::{DynamicImage, RgbaImage};
 use crate::imagery::LineSegment;
 use crate::imagery::RefImage;
 use crate::imagery::RGB;
@@ -11,49 +11,39 @@ use image::Frame;
 use std::fs::File;
 use std::time::Instant;
 
-//  Regular      Negated     Negated w/BG     From Data   From Data w/BG
-// |   |  *|    |*  |   |      |  *|   |      |   |*  |      |   |  *|
-// |   | * |    | * |   |      |   *   |      |   *   |      |   | * |
-// |   *   |    |   *   |      |   | * |      | * |   |      |   *   |
-// |   |  *|    |*  |   |      |  *|   |      |   |*  |      |   |  *|
-//
-pub fn color_on_custom_a(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
+pub fn color_on_custom(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
     let mut ref_image: RefImage = img.into();
-    ref_image = ref_image.negated().add_rgb(args.background_color);
+    let background_color = args.background_color;
+    ref_image = ref_image.negated().add_rgb(background_color);
     let colors = args
         .foreground_colors
         .iter()
-        .map(|rgb| *rgb - args.background_color)
+        .map(|rgb| *rgb - background_color)
         .collect::<Vec<_>>();
 
-    let (data, frames) = run(args, ref_image, pin_locations, &colors);
+    let (mut data, frames) = run(args, ref_image, pin_locations, &colors);
 
     if let Some(ref filepath) = data.args.output_filepath {
-        RefImage::from(&data)
-            .add_rgb(data.args.background_color)
-            .color()
-            .save(filepath)
-            .unwrap();
+        RefImage::from(&data).color().save(filepath).unwrap();
     }
 
     if let Some(gif_filepath) = &data.args.gif_filepath {
-        save_gif(gif_filepath, frames, |r| {
-            r.add_rgb(data.args.background_color).color()
-        });
+        save_gif(gif_filepath, frames);
     }
+
+    data.line_segments
+        .iter_mut()
+        .for_each(|(_, _, rgb)| *rgb = *rgb + background_color);
 
     data
 }
 
-fn save_gif<F>(gif_filepath: &str, frames: Vec<RefImage>, map: F)
-where
-    F: Fn(RefImage) -> image::RgbaImage,
-{
+fn save_gif(gif_filepath: &str, frames: Vec<RgbaImage>) {
     let file_out = File::create(gif_filepath).unwrap();
     let mut encoder = GifEncoder::new_with_speed(file_out, 10);
     encoder.set_repeat(image::gif::Repeat::Infinite).unwrap();
     encoder
-        .encode_frames(frames.into_iter().map(map).map(Frame::new))
+        .encode_frames(frames.into_iter().map(Frame::new))
         .unwrap();
 }
 
@@ -89,7 +79,7 @@ fn run(
     ref_image: RefImage,
     pin_locations: Vec<Point>,
     rgbs: &[RGB],
-) -> (Data, Vec<RefImage>) {
+) -> (Data, Vec<RgbaImage>) {
     let image_width = ref_image.width();
     let image_height = ref_image.height();
 
@@ -115,7 +105,7 @@ fn run(
 
 fn capture_frame(
     line_segments: &[LineSegment],
-    frames: &mut Vec<RefImage>,
+    frames: &mut Vec<RgbaImage>,
     args: &Args,
     width: u32,
     height: u32,
@@ -129,7 +119,7 @@ fn capture_frame(
             width,
             height,
         ));
-        frames.push(img)
+        frames.push(img.color())
     }
 }
 
@@ -138,7 +128,7 @@ fn implementation(
     mut ref_image: RefImage,
     pin_locations: &[Point],
     rgbs: &[RGB],
-) -> (Vec<LineSegment>, i64, i64, Vec<RefImage>) {
+) -> (Vec<LineSegment>, i64, i64, Vec<RgbaImage>) {
     let mut line_segments: Vec<LineSegment> = Vec::new();
     let mut keep_adding = true;
     let mut keep_removing = true;

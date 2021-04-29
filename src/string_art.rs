@@ -34,7 +34,7 @@ pub fn create_string() {
 
     let pins = pins::generate(&args.pin_arrangement, args.pin_count, width, height);
 
-    let data = style::color_on_custom_a(pins, args, image);
+    let data = style::color_on_custom(pins, args, image);
 
     if let Some(data_filepath) = &data.args.data_filepath {
         std::fs::write(data_filepath, serde_json::to_string(&data).unwrap())

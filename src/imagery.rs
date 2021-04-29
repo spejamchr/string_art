@@ -281,6 +281,7 @@ impl std::convert::From<&Data> for RefImage {
             data.image_width,
             data.image_height,
         ))
+        .add_rgb(data.args.background_color)
     }
 }
 
