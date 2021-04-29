@@ -156,6 +156,27 @@ mod test {
     }
 
     #[test]
+    fn test_line_iter_detail() {
+        let line = Line(origin(), v(0.0, 10.0));
+        let vectors: Vec<Vector> = line.iter(10.0).collect();
+        assert_eq!(vec![v(0.0, 0.0), v(0.0, 10.0)], vectors);
+
+        let line = Line(origin(), v(0.0, 10.0));
+        let vectors: Vec<Vector> = line.iter(2.0).collect();
+        assert_eq!(
+            vec![
+                v(0.0, 0.0),
+                v(0.0, 2.0),
+                v(0.0, 4.0),
+                v(0.0, 6.0),
+                v(0.0, 8.0),
+                v(0.0, 10.0)
+            ],
+            vectors
+        );
+    }
+
+    #[test]
     fn test_vector_len() {
         assert_eq!(5.0, a().len());
         assert_eq!(6.0, b().len());
