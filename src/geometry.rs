@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector {
     x: f64,
@@ -104,7 +106,7 @@ impl Iterator for LineIter {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
 pub struct Point {
     pub x: u32,
     pub y: u32,

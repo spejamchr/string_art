@@ -2,9 +2,10 @@ use super::geometry::{Line, Point};
 use crate::image::DynamicImage;
 use crate::image::GenericImageView;
 use crate::inout::Data;
+use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct RGB {
     pub r: i64,
     pub g: i64,

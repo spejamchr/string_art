@@ -2,7 +2,6 @@ use crate::auto_color;
 use crate::cli_app;
 use crate::cli_app::Style;
 use crate::imagery::RGB;
-use crate::inout::ToJsonString;
 use crate::pins;
 use crate::style;
 use image::GenericImageView;
@@ -38,6 +37,7 @@ pub fn create_string() {
     let data = style::color_on_custom_a(pins, args, image);
 
     if let Some(data_filepath) = &data.args.data_filepath {
-        std::fs::write(data_filepath, data.to_json_string()).expect("Unable to write file");
+        std::fs::write(data_filepath, serde_json::to_string(&data).unwrap())
+            .expect("Unable to write file");
     }
 }

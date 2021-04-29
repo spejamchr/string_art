@@ -1,10 +1,11 @@
 use crate::imagery::RGB;
 use clap::{load_yaml, App, ArgMatches};
 use image::io::Reader as ImageReader;
+use serde::Serialize;
 use std::collections::HashSet;
 
 /// The validated arguments passed in by the user
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Args {
     pub input_filepath: String,
     pub output_filepath: Option<String>,
@@ -60,7 +61,7 @@ fn parse_rgbs(matches: &ArgMatches, name: &str) -> Vec<RGB> {
         .unwrap_or_else(Vec::new)
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Style {
     Manual,
     WhiteOnBlack,

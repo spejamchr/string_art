@@ -12,3 +12,5 @@ threadpool = "1.7"
 rand = "0.6"
 clap = {version = "~2.33.0", features = ["yaml"]}
 rayon = "1.5.0"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
