@@ -33,7 +33,7 @@ impl RGB {
         }
     }
 
-    pub fn clamped(&self) -> Self {
+    fn clamped(&self) -> Self {
         Self::new(u8_clamp(self.r), u8_clamp(self.g), u8_clamp(self.b))
     }
 }
@@ -80,17 +80,6 @@ impl std::ops::Neg for RGB {
     }
 }
 
-impl std::ops::Mul<i64> for RGB {
-    type Output = Self;
-    fn mul(self, rhs: i64) -> Self {
-        Self::new(
-            self.r.saturating_mul(rhs),
-            self.g.saturating_mul(rhs),
-            self.b.saturating_mul(rhs),
-        )
-    }
-}
-
 #[derive(Clone, Copy)]
 struct RGBf {
     r: f64,
@@ -99,7 +88,7 @@ struct RGBf {
 }
 
 impl RGBf {
-    pub fn new(r: f64, g: f64, b: f64) -> Self {
+    fn new(r: f64, g: f64, b: f64) -> Self {
         Self { r, g, b }
     }
 }
@@ -150,7 +139,7 @@ impl<T: Into<i64>> std::convert::From<[T; 3]> for RGB {
 pub struct PixLine(HashMap<Point, RGB>);
 
 impl PixLine {
-    pub fn into_iter(self) -> std::collections::hash_map::IntoIter<Point, RGB> {
+    fn into_iter(self) -> std::collections::hash_map::IntoIter<Point, RGB> {
         self.0.into_iter()
     }
 }
@@ -333,5 +322,166 @@ impl std::ops::IndexMut<Point> for RefImage {
 impl std::ops::IndexMut<(u32, u32)> for RefImage {
     fn index_mut(&mut self, (x, y): (u32, u32)) -> &mut Self::Output {
         &mut self.0[y as usize][x as usize]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_rgb_to_string() {
+        assert_eq!("#000000", RGB::BLACK.to_string());
+        assert_eq!("#FFFFFF", RGB::WHITE.to_string());
+        assert_eq!("#123456", RGB::new(18, 52, 86).to_string());
+        assert_eq!("#00FF56", RGB::new(-18, 520, 86).to_string()); // Clamp to u8 range
+    }
+
+    #[test]
+    fn test_rgb_add() {
+        assert_eq!(
+            RGB::new(10, 20, 30),
+            RGB::new(5, 15, 27) + RGB::new(5, 5, 3)
+        );
+    }
+
+    #[test]
+    fn test_rgb_sub() {
+        assert_eq!(RGB::new(0, 10, 24), RGB::new(5, 15, 27) - RGB::new(5, 5, 3));
+    }
+
+    #[test]
+    fn test_rgb_neg() {
+        assert_eq!(RGB::new(-5, -5, -3), -RGB::new(5, 5, 3));
+    }
+
+    #[test]
+    fn test_pix_line() {
+        let line = PixLine::from(((Point::new(0, 0), Point::new(0, 2)), RGB::WHITE, 1.0, 0.2));
+        assert_eq!(
+            vec![
+                (Point::new(0, 0), RGB::new(51, 51, 51)),
+                (Point::new(0, 1), RGB::new(51, 51, 51)),
+                (Point::new(0, 2), RGB::new(51, 51, 51))
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            line.0
+        );
+    }
+
+    #[test]
+    fn test_new_ref_image_is_black() {
+        assert_eq!(vec![vec![RGB::BLACK]], RefImage::new(1, 1).0);
+    }
+
+    #[test]
+    fn test_ref_image_add_rgb() {
+        assert_eq!(
+            vec![vec![RGB::WHITE]],
+            RefImage::new(1, 1).add_rgb(RGB::WHITE).0
+        );
+    }
+
+    #[test]
+    fn test_ref_image_negated() {
+        assert_eq!(
+            vec![vec![-RGB::WHITE]],
+            RefImage::new(1, 1).add_rgb(RGB::WHITE).negated().0
+        );
+    }
+
+    #[test]
+    fn test_black_ref_image_score_is_zero() {
+        assert_eq!(0, RefImage::new(500, 500).score());
+    }
+
+    #[test]
+    fn test_white_ref_image_score() {
+        assert_eq!(
+            3 * 255 * 255,
+            RefImage::new(1, 1).add_rgb(RGB::WHITE).score()
+        );
+    }
+
+    #[test]
+    fn test_inverted_white_ref_image_score() {
+        assert_eq!(
+            3 * 255 * 255,
+            RefImage::new(1, 1).add_rgb(RGB::WHITE).negated().score()
+        )
+    }
+
+    #[test]
+    fn test_score_change_if_added_is_accurate() {
+        let pix_line = || {
+            PixLine::from((
+                (Point::new(0, 0), Point::new(101, 67)),
+                RGB::WHITE,
+                1.0,
+                1.0,
+            ))
+        };
+        let mut ref_image = RefImage::new(150, 150);
+        let predicted_score = ref_image.score_change_if_added(pix_line());
+        ref_image.add_line(pix_line());
+        let real_score = ref_image.score();
+        assert_eq!(real_score, predicted_score);
+    }
+
+    #[test]
+    fn test_score_change_if_removed_is_accurate() {
+        let pix_line = || {
+            PixLine::from((
+                (Point::new(0, 0), Point::new(101, 67)),
+                RGB::WHITE,
+                1.0,
+                1.0,
+            ))
+        };
+        let mut ref_image = RefImage::new(150, 150);
+        let predicted_score = ref_image.score_change_if_removed(pix_line());
+        ref_image.subtract_line(pix_line());
+        let real_score = ref_image.score();
+        assert_eq!(real_score, predicted_score);
+    }
+
+    #[test]
+    fn test_ref_image_width() {
+        assert_eq!(5, RefImage::new(5, 1).width());
+    }
+
+    #[test]
+    fn test_ref_image_height() {
+        assert_eq!(5, RefImage::new(1, 5).height());
+    }
+
+    #[test]
+    fn test_ref_image_color() {
+        // Create a ref image where each pixel is unique
+        let mut ref_image = RefImage::new(400, 400);
+        ref_image
+            .0
+            .iter_mut()
+            .flatten()
+            .enumerate()
+            .for_each(|(i, rgb)| {
+                *rgb = RGB::new(
+                    ((i / 255 / 255) % 255) as i64,
+                    ((i / 255) % 255) as i64,
+                    (i % 255) as i64,
+                )
+            });
+
+        let ref_pixels: Vec<_> = ref_image
+            .0
+            .iter()
+            .flatten()
+            .map(|RGB { r, g, b }| [*r as u8, *g as u8, *b as u8, 255])
+            .collect();
+
+        let pixels: Vec<_> = ref_image.color().pixels().map(|p| p.0).collect();
+
+        assert_eq!(ref_pixels, pixels);
     }
 }
