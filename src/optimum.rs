@@ -18,14 +18,10 @@ pub fn find_best_points(
         .par_iter()
         .enumerate()
         .flat_map(|(i, a)| pins.par_iter().skip(i).map(move |b| (a, b)))
-        .filter(|(a, b)| a.x != b.x && a.y != b.y)
-        .flat_map(|(a, b)| {
-            rgbs.par_iter().map(move |rgb| {
-                (
-                    (*a, *b, *rgb),
-                    ref_image.score_change_if_added(((*a, *b), *rgb, step_size, string_alpha)),
-                )
-            })
+        .flat_map(|(a, b)| rgbs.par_iter().map(move |rgb| (*a, *b, *rgb)))
+        .map(|(a, b, rgb)| {
+            let score = ref_image.score_change_on_add(((a, b), rgb, step_size, string_alpha));
+            ((a, b, rgb), score)
         })
         .filter(|(_, s)| *s < 0)
         .collect::<Vec<_>>();
@@ -44,10 +40,8 @@ pub fn find_worst_points(
         .par_iter()
         .enumerate()
         .map(|(i, (a, b, rgb))| {
-            (
-                i,
-                ref_image.score_change_if_removed(((*a, *b), *rgb, step_size, string_alpha)),
-            )
+            let score = ref_image.score_change_on_sub(((*a, *b), *rgb, step_size, string_alpha));
+            (i, score)
         })
         .filter(|(_, s)| *s < 0)
         .collect::<Vec<_>>();

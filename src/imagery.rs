@@ -143,6 +143,10 @@ impl PixLine {
     fn into_iter(self) -> std::collections::hash_map::IntoIter<Point, RGB> {
         self.0.into_iter()
     }
+
+    fn negated(&self) -> Self {
+        Self(self.0.iter().map(|(point, rgb)| (*point, -*rgb)).collect())
+    }
 }
 
 impl<T: Into<Line>> std::convert::From<(T, RGB, f64, f64)> for PixLine {
@@ -191,7 +195,7 @@ impl RefImage {
         self.0.iter().flatten().map(pixel_score).sum()
     }
 
-    pub fn score_change_if_added<T: Into<PixLine>>(&self, line: T) -> i64 {
+    pub fn score_change_on_add<T: Into<PixLine>>(&self, line: T) -> i64 {
         line.into()
             .into_iter()
             .map(|(p, rgb)| {
@@ -202,25 +206,8 @@ impl RefImage {
             .sum()
     }
 
-    pub fn score_change_if_removed<T: Into<PixLine>>(&self, line: T) -> i64 {
-        line.into()
-            .into_iter()
-            .map(|(p, rgb)| {
-                let a = self[p];
-                let b = a - rgb;
-                pixel_score(&b) - pixel_score(&a)
-            })
-            .sum()
-    }
-
-    pub fn subtract_line<T: Into<PixLine>>(&mut self, line: T) -> &mut Self {
-        *self -= line;
-        self
-    }
-
-    pub fn add_line<T: Into<PixLine>>(&mut self, line: T) -> &mut Self {
-        *self += line;
-        self
+    pub fn score_change_on_sub<T: Into<PixLine>>(&self, line: T) -> i64 {
+        self.score_change_on_add(line.into().negated())
     }
 
     pub fn width(&self) -> u32 {
@@ -253,9 +240,10 @@ fn pixel_score(RGB { r, g, b }: &RGB) -> i64 {
 impl<T: Into<PixLine> + Copy> std::convert::From<(&Vec<T>, u32, u32)> for RefImage {
     fn from((line_segmentables, width, height): (&Vec<T>, u32, u32)) -> Self {
         let mut ref_image = Self::new(width, height);
-        line_segmentables
-            .iter()
-            .fold(&mut ref_image, |i, a| i.add_line(*a));
+        line_segmentables.iter().fold(&mut ref_image, |i, a| {
+            *i += *a;
+            i
+        });
         ref_image
     }
 }
@@ -415,7 +403,7 @@ mod test {
     }
 
     #[test]
-    fn test_score_change_if_added_is_accurate() {
+    fn test_score_change_on_add_is_accurate() {
         let pix_line = || {
             PixLine::from((
                 (Point::new(0, 0), Point::new(101, 67)),
@@ -424,15 +412,16 @@ mod test {
                 1.0,
             ))
         };
-        let mut ref_image = RefImage::new(150, 150);
-        let predicted_score = ref_image.score_change_if_added(pix_line());
-        ref_image.add_line(pix_line());
-        let real_score = ref_image.score();
-        assert_eq!(real_score, predicted_score);
+        let mut ref_image = RefImage::new(150, 150).add_rgb(-RGB::WHITE);
+        let initial_score = ref_image.score();
+        let predicted_score_change = ref_image.score_change_on_add(pix_line());
+        ref_image += pix_line();
+        let real_score_change = ref_image.score() - initial_score;
+        assert_eq!(real_score_change, predicted_score_change);
     }
 
     #[test]
-    fn test_score_change_if_removed_is_accurate() {
+    fn test_score_change_on_sub_is_accurate() {
         let pix_line = || {
             PixLine::from((
                 (Point::new(0, 0), Point::new(101, 67)),
@@ -441,11 +430,12 @@ mod test {
                 1.0,
             ))
         };
-        let mut ref_image = RefImage::new(150, 150);
-        let predicted_score = ref_image.score_change_if_removed(pix_line());
-        ref_image.subtract_line(pix_line());
-        let real_score = ref_image.score();
-        assert_eq!(real_score, predicted_score);
+        let mut ref_image = RefImage::new(150, 150).add_rgb(-RGB::WHITE);
+        let initial_score = ref_image.score();
+        let predicted_score_change = ref_image.score_change_on_sub(pix_line());
+        ref_image -= pix_line();
+        let real_score_change = ref_image.score() - initial_score;
+        assert_eq!(real_score_change, predicted_score_change);
     }
 
     #[test]
