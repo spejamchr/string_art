@@ -1,5 +1,5 @@
-use super::geometry::Point;
-use rand::RngCore;
+use crate::geometry::Point;
+use crate::rand::RngCore;
 use std::collections::HashSet;
 
 const P: fn(u32, u32) -> Point = Point::new;

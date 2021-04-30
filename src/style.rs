@@ -1,15 +1,27 @@
 use crate::cli_app::Args;
 use crate::geometry::Point;
+use crate::image::gif::GifEncoder;
+use crate::image::Frame;
 use crate::image::{DynamicImage, RgbaImage};
 use crate::imagery::LineSegment;
 use crate::imagery::RefImage;
 use crate::imagery::RGB;
-use crate::inout::Data;
 use crate::optimum;
-use image::gif::GifEncoder;
-use image::Frame;
+use crate::serde::Serialize;
 use std::fs::File;
 use std::time::Instant;
+
+#[derive(Serialize)]
+pub struct Data {
+    pub args: Args,
+    pub image_height: u32,
+    pub image_width: u32,
+    pub initial_score: i64,
+    pub final_score: i64,
+    pub elapsed_seconds: f64,
+    pub pin_locations: Vec<Point>,
+    pub line_segments: Vec<LineSegment>,
+}
 
 pub fn color_on_custom(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
     let mut ref_image: RefImage = img.into();

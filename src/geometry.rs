@@ -1,4 +1,4 @@
-use serde::Serialize;
+use crate::serde::Serialize;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vector {

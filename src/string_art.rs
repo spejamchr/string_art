@@ -1,10 +1,10 @@
 use crate::auto_color;
 use crate::cli_app;
 use crate::cli_app::Style;
+use crate::image::GenericImageView;
 use crate::imagery::RGB;
 use crate::pins;
 use crate::style;
-use image::GenericImageView;
 
 // Create an image of the string art and output the knob positions and sequence
 pub fn create_string() {

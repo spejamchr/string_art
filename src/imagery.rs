@@ -1,8 +1,8 @@
-use super::geometry::{Line, Point};
+use crate::geometry::{Line, Point};
 use crate::image::DynamicImage;
 use crate::image::GenericImageView;
-use crate::inout::Data;
-use serde::Serialize;
+use crate::serde::Serialize;
+use crate::style::Data;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]

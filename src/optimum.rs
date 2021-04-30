@@ -1,10 +1,10 @@
-use super::geometry::Point;
-use super::imagery::RefImage;
+use crate::geometry::Point;
 use crate::imagery::LineSegment;
+use crate::imagery::RefImage;
 use crate::imagery::RGB;
-use rayon::iter::IndexedParallelIterator;
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
+use crate::rayon::iter::IndexedParallelIterator;
+use crate::rayon::iter::IntoParallelRefIterator;
+use crate::rayon::iter::ParallelIterator;
 
 pub fn find_best_points(
     pins: &[Point],

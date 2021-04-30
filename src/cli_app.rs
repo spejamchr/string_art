@@ -1,7 +1,7 @@
+use crate::clap::{load_yaml, App, ArgMatches};
+use crate::image::io::Reader as ImageReader;
 use crate::imagery::RGB;
-use clap::{load_yaml, App, ArgMatches};
-use image::io::Reader as ImageReader;
-use serde::Serialize;
+use crate::serde::Serialize;
 use std::collections::HashSet;
 
 /// The validated arguments passed in by the user

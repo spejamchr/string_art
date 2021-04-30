@@ -1,5 +1,5 @@
+use crate::image::DynamicImage;
 use crate::imagery::RGB;
-use image::DynamicImage;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
