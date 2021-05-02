@@ -1,19 +1,47 @@
 use crate::geometry::Point;
 use crate::rand::RngCore;
+use crate::serde::Serialize;
 use std::collections::HashSet;
 
 const P: fn(u32, u32) -> Point = Point::new;
 
-pub fn generate(pin_arrangement: &str, desired_count: u32, width: u32, height: u32) -> Vec<Point> {
-    let generator = match pin_arrangement {
-        "perimeter" => perimeter,
-        "grid" => grid,
-        "circle" => circle,
-        "random" => random,
-        a => panic!("That's not a valid pin arrangement: {}", a),
-    };
+pub fn generate(
+    pin_arrangement: &PinArrangement,
+    desired_count: u32,
+    width: u32,
+    height: u32,
+) -> Vec<Point> {
+    generator(pin_arrangement)(desired_count, width, height)
+}
 
-    generator(desired_count, width, height)
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub enum PinArrangement {
+    Perimeter,
+    Grid,
+    Circle,
+    Random,
+}
+
+impl core::str::FromStr for PinArrangement {
+    type Err = String;
+    fn from_str(string: &str) -> std::result::Result<Self, Self::Err> {
+        match string {
+            "perimeter" => Ok(PinArrangement::Perimeter),
+            "grid" => Ok(PinArrangement::Grid),
+            "circle" => Ok(PinArrangement::Circle),
+            "random" => Ok(PinArrangement::Random),
+            _ => Err(format!("Invalid pin arrangement: \"{}\"", string)),
+        }
+    }
+}
+
+fn generator(pin_arrangement: &PinArrangement) -> fn(u32, u32, u32) -> Vec<Point> {
+    match pin_arrangement {
+        PinArrangement::Perimeter => perimeter,
+        PinArrangement::Grid => grid,
+        PinArrangement::Circle => circle,
+        PinArrangement::Random => random,
+    }
 }
 
 fn perimeter(desired_count: u32, width: u32, height: u32) -> Vec<Point> {

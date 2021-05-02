@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate clap;
 extern crate image;
 extern crate rand;
@@ -13,6 +14,7 @@ mod optimum;
 mod pins;
 mod string_art;
 mod style;
+mod util;
 
 fn main() {
     string_art::create_string();

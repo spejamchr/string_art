@@ -1,8 +1,14 @@
-use crate::clap::{load_yaml, App, ArgMatches};
+use crate::clap::value_t;
+use crate::clap::values_t;
+use crate::clap::ArgMatches;
 use crate::image::io::Reader as ImageReader;
 use crate::imagery::RGB;
+use crate::pins::PinArrangement;
 use crate::serde::Serialize;
+use crate::util;
 use std::collections::HashSet;
+
+mod app;
 
 /// The validated arguments passed in by the user
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -16,129 +22,91 @@ pub struct Args {
     pub step_size: f64,
     pub string_alpha: f64,
     pub pin_count: u32,
-    pub pin_arrangement: String,
-    pub style: Style,
+    pub pin_arrangement: PinArrangement,
+    pub auto_color: Option<AutoColor>,
     pub foreground_colors: Vec<RGB>,
     pub background_color: RGB,
     pub verbosity: u64,
 }
 
-fn string_arg(matches: &ArgMatches, name: &str) -> String {
-    matches
-        .value_of(name)
-        .unwrap_or_else(|| panic!("Required or default value for {}", name))
-        .to_owned()
-}
-
-fn opt_string_arg(matches: &ArgMatches, name: &str) -> Option<String> {
-    matches.value_of(name).map(|s| s.to_owned())
-}
-
-fn number_arg<E: std::fmt::Debug, T: std::str::FromStr<Err = E>>(
-    matches: &ArgMatches,
-    name: &str,
-) -> T {
-    matches
-        .value_of(name)
-        .unwrap_or_else(|| panic!("There is a default for {}", name))
-        .parse::<T>()
-        .unwrap_or_else(|_| panic!("Argument '{}' was not a valid number", name))
-}
-
-// Parses a color hex code of the form '#RRGGBB..' into an instance of 'RGB'
-fn parse_rgb(hex_code: &str) -> RGB {
-    let error = |_| panic!(format!("Invalid hex code: '{}'", hex_code));
-    let r: u8 = u8::from_str_radix(&hex_code[1..3], 16).unwrap_or_else(error);
-    let g: u8 = u8::from_str_radix(&hex_code[3..5], 16).unwrap_or_else(error);
-    let b: u8 = u8::from_str_radix(&hex_code[5..7], 16).unwrap_or_else(error);
-    RGB::new(r, g, b)
-}
-
-fn parse_rgbs(matches: &ArgMatches, name: &str) -> Vec<RGB> {
-    matches
-        .values_of(name)
-        .map(|v| v.map(parse_rgb).collect())
-        .unwrap_or_else(Vec::new)
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum Style {
-    Manual,
-    WhiteOnBlack,
-    BlackOnWhite,
-    AutoColor {
-        auto_fg_count: usize,
-        manual_foregrounds: HashSet<RGB>,
-        manual_background: Option<RGB>,
-    },
-}
-
-fn from_bool<T>(b: bool) -> impl FnOnce(T) -> Option<T> {
-    move |v: T| if b { Some(v) } else { None }
+pub struct AutoColor {
+    pub auto_fg_count: usize,
+    pub manual_foregrounds: HashSet<RGB>,
+    pub manual_background: Option<RGB>,
 }
 
 fn parse_manual_background(matches: &ArgMatches) -> Option<RGB> {
     matches
         .value_of("background_color")
-        .and_then(from_bool(matches.occurrences_of("background_color") > 0))
-        .map(parse_rgb)
+        .and_then(util::from_bool(
+            matches.occurrences_of("background_color") > 0,
+        ))
+        .map(|_| value_t!(matches, "background_color", RGB).unwrap())
 }
 
 fn parse_manual_foregrounds(matches: &ArgMatches) -> HashSet<RGB> {
     matches
         .values_of("foreground_color")
-        .and_then(from_bool(matches.occurrences_of("foreground_color") > 0))
-        .map(|v| v.map(parse_rgb).collect())
+        .and_then(util::from_bool(
+            matches.occurrences_of("foreground_color") > 0,
+        ))
+        .and_then(|_| values_t!(matches, "foreground_color", RGB).ok())
+        .map(|v| v.into_iter().collect())
         .unwrap_or_else(HashSet::new)
 }
 
-fn parse_style(matches: &clap::ArgMatches) -> Style {
-    match (
-        matches.is_present("white_on_black"),
-        matches.is_present("black_on_white"),
-        matches.is_present("auto_color"),
-    ) {
-        (true, _, _) => Style::WhiteOnBlack,
-        (_, true, _) => Style::BlackOnWhite,
-        (_, _, true) => Style::AutoColor {
-            auto_fg_count: number_arg(&matches, "auto_color"),
+fn parse_auto_color(matches: &ArgMatches) -> Option<AutoColor> {
+    value_t!(matches, "auto_color", usize)
+        .ok()
+        .map(|count| AutoColor {
+            auto_fg_count: count,
             manual_foregrounds: parse_manual_foregrounds(&matches),
             manual_background: parse_manual_background(&matches),
-        },
-        _ => Style::Manual,
-    }
+        })
 }
 
 pub fn parse_args() -> Args {
-    let yaml = load_yaml!("cli_args.yml");
-    App::from_yaml(yaml).get_matches().into()
+    app::create().get_matches().into()
 }
 
 impl Args {
     pub fn image(&self) -> image::DynamicImage {
         ImageReader::open(&self.input_filepath)
-            .unwrap_or_else(|_| panic!("Could not open input file '{}'", self.input_filepath))
+            .unwrap_or_else(|_| {
+                clap::Error::value_validation_auto(format!(
+                    "The input filepath '{}' could not be opened",
+                    &self.input_filepath
+                ))
+                .exit()
+            })
             .decode()
-            .expect("Corrupted file")
+            .unwrap_or_else(|_| {
+                clap::Error::value_validation_auto(format!(
+                    "The input filepath '{}' could not be decoded",
+                    &self.input_filepath
+                ))
+                .exit()
+            })
     }
 }
 
-impl From<clap::ArgMatches<'_>> for Args {
-    fn from(matches: clap::ArgMatches) -> Self {
+impl From<ArgMatches<'_>> for Args {
+    fn from(matches: ArgMatches) -> Self {
         Self {
-            input_filepath: string_arg(&matches, "input_filepath"),
-            output_filepath: opt_string_arg(&matches, "output_filepath"),
-            pins_filepath: opt_string_arg(&matches, "pins_filepath"),
-            data_filepath: opt_string_arg(&matches, "data_filepath"),
-            gif_filepath: opt_string_arg(&matches, "gif_filepath"),
-            max_strings: number_arg(&matches, "max_strings"),
-            step_size: number_arg(&matches, "step_size"),
-            string_alpha: number_arg(&matches, "string_alpha"),
-            pin_count: number_arg(&matches, "pin_count"),
-            pin_arrangement: string_arg(&matches, "pin_arrangement"),
-            style: parse_style(&matches),
-            foreground_colors: parse_rgbs(&matches, "foreground_color"),
-            background_color: parse_rgb(&string_arg(&matches, "background_color")),
+            input_filepath: value_t!(matches, "input_filepath", String).unwrap(),
+            output_filepath: value_t!(matches, "output_filepath", String).ok(),
+            pins_filepath: value_t!(matches, "pins_filepath", String).ok(),
+            data_filepath: value_t!(matches, "data_filepath", String).ok(),
+            gif_filepath: value_t!(matches, "gif_filepath", String).ok(),
+            max_strings: value_t!(matches, "max_strings", usize).unwrap(),
+            step_size: value_t!(matches, "step_size", f64).unwrap(),
+            string_alpha: value_t!(matches, "string_alpha", f64).unwrap(),
+            pin_count: value_t!(matches, "pin_count", u32).unwrap(),
+            pin_arrangement: value_t!(matches, "pin_arrangement", PinArrangement).unwrap(),
+            auto_color: parse_auto_color(&matches),
+            foreground_colors: values_t!(matches.values_of("foreground_color"), RGB).unwrap(),
+            background_color: value_t!(matches, "background_color", RGB).unwrap(),
             verbosity: matches.occurrences_of("verbose"),
         }
     }
@@ -161,10 +129,10 @@ mod test {
             gif_filepath: None,
             max_strings: u32::MAX as usize,
             step_size: 1.0,
-            string_alpha: 1.0,
+            string_alpha: 0.2,
             pin_count: 200,
-            pin_arrangement: "perimeter".to_owned(),
-            style: Style::Manual,
+            pin_arrangement: PinArrangement::Perimeter,
+            auto_color: None,
             foreground_colors: vec![RGB::WHITE],
             background_color: RGB::BLACK,
             verbosity: 0,
@@ -173,29 +141,24 @@ mod test {
 
     #[test]
     fn test_errors_without_input_filepath() {
-        let yaml = load_yaml!("cli_args.yml");
-        let matches: Result<_, _> = App::from_yaml(yaml).get_matches_from_safe(vec!["string_art"]);
+        let matches: Result<_, _> = app::create().get_matches_from_safe(vec!["string_art"]);
         assert!(matches.is_err());
     }
 
     #[test]
     fn test_no_error_with_input_filepath() {
-        let yaml = load_yaml!("cli_args.yml");
-        let matches: Result<_, _> = App::from_yaml(yaml).get_matches_from_safe(vec![
+        let matches: Result<_, _> = app::create().get_matches_from_safe(vec![
             "string_art",
             "--input-filepath",
             "test.png",
         ]);
         assert!(matches.is_ok());
-        let _args: Args = App::from_yaml(yaml)
-            .get_matches_from(vec!["string_art", "--input-filepath", "test.png"])
-            .into();
+        let _args: Result<Args, _> = matches.map(|a| a.into());
     }
 
     #[test]
     fn test_defaults() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec!["string_art", "--input-filepath", &input_filepath()])
             .into();
         assert_eq!(default_args(), args);
@@ -204,8 +167,7 @@ mod test {
     #[test]
     fn test_output_filepath() {
         let output_filepath = "output.png".to_owned();
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -220,8 +182,7 @@ mod test {
     #[test]
     fn test_pins_filepath() {
         let pins_filepath = "pins.png".to_owned();
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -236,8 +197,7 @@ mod test {
     #[test]
     fn test_data_filepath() {
         let data_filepath = "data.json".to_owned();
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -252,8 +212,7 @@ mod test {
     #[test]
     fn test_gif_filepath() {
         let gif_filepath = "test.gif".to_owned();
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -268,8 +227,7 @@ mod test {
     #[test]
     fn test_max_strings() {
         let max_strings = 10;
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -284,8 +242,7 @@ mod test {
     #[test]
     fn test_step_size() {
         let step_size = 0.83;
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -300,8 +257,7 @@ mod test {
     #[test]
     fn test_string_alpha() {
         let string_alpha = 0.83;
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -316,8 +272,7 @@ mod test {
     #[test]
     fn test_pin_count() {
         let pin_count = 12;
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -331,24 +286,21 @@ mod test {
 
     #[test]
     fn test_pin_arrangement() {
-        let pin_arrangement = "random".to_owned();
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
                 &input_filepath(),
                 "--pin-arrangement",
-                &pin_arrangement,
+                "random",
             ])
             .into();
-        assert_eq!(pin_arrangement, args.pin_arrangement);
+        assert_eq!(PinArrangement::Random, args.pin_arrangement);
     }
 
     #[test]
     fn test_background_color() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -362,8 +314,7 @@ mod test {
 
     #[test]
     fn test_foreground_color() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -381,23 +332,8 @@ mod test {
     }
 
     #[test]
-    fn test_style() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--white-on-black",
-            ])
-            .into();
-        assert_eq!(Style::WhiteOnBlack, args.style);
-    }
-
-    #[test]
     fn test_auto_color() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -407,19 +343,18 @@ mod test {
             ])
             .into();
         assert_eq!(
-            Style::AutoColor {
+            Some(AutoColor {
                 auto_fg_count: 2,
                 manual_background: None,
                 manual_foregrounds: HashSet::new()
-            },
-            args.style
+            }),
+            args.auto_color
         );
     }
 
     #[test]
     fn test_auto_color_with_manual_fg_and_bg() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",
@@ -433,19 +368,18 @@ mod test {
             ])
             .into();
         assert_eq!(
-            Style::AutoColor {
+            Some(AutoColor {
                 auto_fg_count: 2,
                 manual_background: Some(RGB::WHITE),
                 manual_foregrounds: vec![RGB::BLACK].into_iter().collect()
-            },
-            args.style
+            }),
+            args.auto_color
         );
     }
 
     #[test]
     fn test_verbosity() {
-        let yaml = load_yaml!("cli_args.yml");
-        let args: Args = App::from_yaml(yaml)
+        let args: Args = app::create()
             .get_matches_from(vec![
                 "string_art",
                 "--input-filepath",

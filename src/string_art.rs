@@ -1,8 +1,6 @@
 use crate::auto_color;
 use crate::cli_app;
-use crate::cli_app::Style;
 use crate::image::GenericImageView;
-use crate::imagery::RGB;
 use crate::pins;
 use crate::style;
 
@@ -14,15 +12,9 @@ pub fn create_string() {
     let height = image.height();
     let width = image.width();
 
-    let (foreground_colors, background_color) = match args.style {
-        Style::Manual => (args.foreground_colors, args.background_color),
-        Style::BlackOnWhite => (vec![RGB::BLACK], RGB::WHITE),
-        Style::WhiteOnBlack => (vec![RGB::WHITE], RGB::BLACK),
-        Style::AutoColor {
-            auto_fg_count,
-            ref manual_foregrounds,
-            manual_background,
-        } => auto_color::fg_and_bg(auto_fg_count, manual_foregrounds, manual_background, &image),
+    let (foreground_colors, background_color) = match &args.auto_color {
+        Some(auto_color) => auto_color::fg_and_bg(&auto_color, &image),
+        None => (args.foreground_colors, args.background_color),
     };
 
     args.foreground_colors = foreground_colors;

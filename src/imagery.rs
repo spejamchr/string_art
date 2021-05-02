@@ -3,6 +3,7 @@ use crate::image::DynamicImage;
 use crate::image::GenericImageView;
 use crate::serde::Serialize;
 use crate::style::Data;
+use crate::util;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -15,6 +16,7 @@ pub struct RGB {
 pub type LineSegment = (Point, Point, RGB);
 
 impl RGB {
+    #[cfg(test)]
     pub const WHITE: Self = RGB {
         r: 255,
         g: 255,
@@ -41,6 +43,28 @@ impl RGB {
 
 fn u8_clamp(n: i64) -> u8 {
     i64::max(u8::MIN.into(), i64::min(u8::MAX.into(), n)) as u8
+}
+
+fn valid_hex(s: &str) -> Option<u8> {
+    u8::from_str_radix(s, 16).ok()
+}
+
+impl core::str::FromStr for RGB {
+    type Err = String;
+    fn from_str(string: &str) -> std::result::Result<Self, Self::Err> {
+        Some(string)
+            .and_then(util::from_bool(string.len() == 7 && &string[0..1] == "#"))
+            .and_then(|_| valid_hex(&string[1..3]))
+            .and_then(|r| valid_hex(&string[3..5]).map(|g| (r, g)))
+            .and_then(|(r, g)| valid_hex(&string[5..7]).map(|b| (r, g, b)))
+            .map(RGB::from)
+            .ok_or_else(|| {
+                format!(
+                    "Hex Code should be in #RRGGBB format, but got: \"{}\"",
+                    string
+                )
+            })
+    }
 }
 
 impl std::fmt::Display for RGB {
