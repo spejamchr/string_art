@@ -24,74 +24,56 @@ pub struct Data {
 }
 
 pub fn color_on_custom(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
-    let mut ref_image: RefImage = img.into();
     let background_color = args.background_color;
-    ref_image = ref_image.negated().add_rgb(background_color);
+    let mut ref_image = RefImage::from(img).negated().add_rgb(background_color);
     let colors = args
         .foreground_colors
         .iter()
         .map(|rgb| *rgb - background_color)
         .collect::<Vec<_>>();
 
-    let mut data = run(args, ref_image, pin_locations, &colors);
+    let start_at = Instant::now();
+    let (line_segments, initial_score, final_score) =
+        implementation(&args, &mut ref_image, &pin_locations, &colors);
+
+    let data = Data {
+        args,
+        image_height: ref_image.height(),
+        image_width: ref_image.width(),
+        initial_score,
+        final_score,
+        elapsed_seconds: start_at.elapsed().as_secs_f64(),
+        pin_locations,
+        line_segments: line_segments
+            .into_iter()
+            .map(|(a, b, rgb)| (a, b, rgb + background_color))
+            .collect(),
+    };
 
     if let Some(ref filepath) = data.args.output_filepath {
         RefImage::from(&data).color().save(filepath).unwrap();
     }
 
-    data.line_segments
-        .iter_mut()
-        .for_each(|(_, _, rgb)| *rgb = *rgb + background_color);
-
     data
 }
 
-fn log_added_points(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: RGB) {
+fn log_on_add(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: RGB) {
     if args.verbosity > 0 {
         let rgb = rgb + args.background_color;
         println!(
-            "[{:>6}]:   score change: {:>10}     added  {} to {} with {}",
+            "[{:>6}]:   score change: {:>10}     +add  {} to {} with {}",
             pin_len, score_change, a, b, rgb
         );
     }
 }
 
-fn log_removed_points(
-    args: &Args,
-    pin_len: usize,
-    score_change: i64,
-    a: Point,
-    b: Point,
-    rgb: RGB,
-) {
+fn log_on_sub(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: RGB) {
     if args.verbosity > 0 {
         let rgb = rgb + args.background_color;
         println!(
-            "[{:>6}]:   score change: {:>10}    removed {} to {} with {}",
+            "[{:>6}]:   score change: {:>10}     -sub  {} to {} with {}",
             pin_len, score_change, a, b, rgb
         );
-    }
-}
-
-fn run(args: Args, ref_image: RefImage, pin_locations: Vec<Point>, rgbs: &[RGB]) -> Data {
-    let image_width = ref_image.width();
-    let image_height = ref_image.height();
-
-    let start_at = Instant::now();
-    let (line_segments, initial_score, final_score) =
-        implementation(&args, ref_image, &pin_locations, rgbs);
-
-    let elapsed_seconds = start_at.elapsed().as_secs_f64();
-
-    Data {
-        args,
-        image_height,
-        image_width,
-        initial_score,
-        final_score,
-        elapsed_seconds,
-        pin_locations,
-        line_segments,
     }
 }
 
@@ -114,7 +96,7 @@ fn capture_frame(
 
 fn implementation(
     args: &Args,
-    mut ref_image: RefImage,
+    ref_image: &mut RefImage,
     pin_locations: &[Point],
     rgbs: &[RGB],
 ) -> (Vec<LineSegment>, i64, i64) {
@@ -170,9 +152,9 @@ fn implementation(
             }
 
             points.into_iter().for_each(|((a, b, rgb), s)| {
-                ref_image += ((a, b), rgb, args.step_size, args.string_alpha);
+                *ref_image += ((a, b), rgb, args.step_size, args.string_alpha);
                 line_segments.push((a, b, rgb));
-                log_added_points(args, line_segments.len(), s, a, b, rgb);
+                log_on_add(args, line_segments.len(), s, a, b, rgb);
             });
 
             if line_segments.len() >= args.max_strings {
@@ -206,8 +188,8 @@ fn implementation(
 
             worst_points.into_iter().for_each(|(i, s)| {
                 let (a, b, rgb) = line_segments.remove(i);
-                ref_image -= ((a, b), rgb, args.step_size, args.string_alpha);
-                log_removed_points(args, line_segments.len(), s, a, b, rgb);
+                *ref_image -= ((a, b), rgb, args.step_size, args.string_alpha);
+                log_on_sub(args, line_segments.len(), s, a, b, rgb);
             });
 
             if line_segments.is_empty() {
