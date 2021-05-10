@@ -99,7 +99,7 @@ impl From<ArgMatches<'_>> for Args {
             pins_filepath: value_t!(matches, "pins_filepath", String).ok(),
             data_filepath: value_t!(matches, "data_filepath", String).ok(),
             gif_filepath: value_t!(matches, "gif_filepath", String).ok(),
-            max_strings: value_t!(matches, "max_strings", usize).unwrap(),
+            max_strings: value_t!(matches, "max_strings", usize).unwrap_or(usize::MAX),
             step_size: value_t!(matches, "step_size", f64).unwrap(),
             string_alpha: value_t!(matches, "string_alpha", f64).unwrap(),
             pin_count: value_t!(matches, "pin_count", u32).unwrap(),
@@ -127,7 +127,7 @@ mod test {
             pins_filepath: None,
             data_filepath: None,
             gif_filepath: None,
-            max_strings: u32::MAX as usize,
+            max_strings: usize::MAX,
             step_size: 1.0,
             string_alpha: 0.2,
             pin_count: 200,
@@ -147,11 +147,8 @@ mod test {
 
     #[test]
     fn test_no_error_with_input_filepath() {
-        let matches: Result<_, _> = app::create().get_matches_from_safe(vec![
-            "string_art",
-            "--input-filepath",
-            "test.png",
-        ]);
+        let matches: Result<_, _> =
+            app::create().get_matches_from_safe(vec!["string_art", "--input-filepath", "test.png"]);
         assert!(matches.is_ok());
         let _args: Result<Args, _> = matches.map(|a| a.into());
     }

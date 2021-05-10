@@ -71,8 +71,7 @@ pub fn create() -> App<'static, 'static> {
         .short("m")
         .long("max-strings")
         .takes_value(true)
-        .default_value("4294967295") // u32::MAX
-        .validator(valid_type::<u32>("Integer"))
+        .validator(valid_type::<usize>("Integer"))
         .help("The maximum number of strings in the finished work.")
     )
     .arg(Arg::with_name("step_size")
