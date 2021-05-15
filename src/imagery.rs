@@ -288,7 +288,8 @@ impl std::convert::From<&Data> for RefImage {
             &data
                 .line_segments
                 .iter()
-                .map(|(a, b, rgb)| ((*a, *b), *rgb, data.args.step_size, data.args.string_alpha))
+                .map(|(a, b, rgb)| (a, b, *rgb - data.args.background_color))
+                .map(|(a, b, rgb)| ((*a, *b), rgb, data.args.step_size, data.args.string_alpha))
                 .collect(),
             data.image_width,
             data.image_height,
