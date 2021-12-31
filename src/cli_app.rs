@@ -2,7 +2,7 @@ use crate::clap::value_t;
 use crate::clap::values_t;
 use crate::clap::ArgMatches;
 use crate::image::io::Reader as ImageReader;
-use crate::imagery::RGB;
+use crate::imagery::Rgb;
 use crate::pins::PinArrangement;
 use crate::serde::Serialize;
 use crate::util;
@@ -24,34 +24,34 @@ pub struct Args {
     pub pin_count: u32,
     pub pin_arrangement: PinArrangement,
     pub auto_color: Option<AutoColor>,
-    pub foreground_colors: Vec<RGB>,
-    pub background_color: RGB,
+    pub foreground_colors: Vec<Rgb>,
+    pub background_color: Rgb,
     pub verbosity: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AutoColor {
     pub auto_fg_count: usize,
-    pub manual_foregrounds: HashSet<RGB>,
-    pub manual_background: Option<RGB>,
+    pub manual_foregrounds: HashSet<Rgb>,
+    pub manual_background: Option<Rgb>,
 }
 
-fn parse_manual_background(matches: &ArgMatches) -> Option<RGB> {
+fn parse_manual_background(matches: &ArgMatches) -> Option<Rgb> {
     matches
         .value_of("background_color")
         .and_then(util::from_bool(
             matches.occurrences_of("background_color") > 0,
         ))
-        .map(|_| value_t!(matches, "background_color", RGB).unwrap())
+        .map(|_| value_t!(matches, "background_color", Rgb).unwrap())
 }
 
-fn parse_manual_foregrounds(matches: &ArgMatches) -> HashSet<RGB> {
+fn parse_manual_foregrounds(matches: &ArgMatches) -> HashSet<Rgb> {
     matches
         .values_of("foreground_color")
         .and_then(util::from_bool(
             matches.occurrences_of("foreground_color") > 0,
         ))
-        .and_then(|_| values_t!(matches, "foreground_color", RGB).ok())
+        .and_then(|_| values_t!(matches, "foreground_color", Rgb).ok())
         .map(|v| v.into_iter().collect())
         .unwrap_or_else(HashSet::new)
 }
@@ -61,8 +61,8 @@ fn parse_auto_color(matches: &ArgMatches) -> Option<AutoColor> {
         .ok()
         .map(|count| AutoColor {
             auto_fg_count: count,
-            manual_foregrounds: parse_manual_foregrounds(&matches),
-            manual_background: parse_manual_background(&matches),
+            manual_foregrounds: parse_manual_foregrounds(matches),
+            manual_background: parse_manual_background(matches),
         })
 }
 
@@ -105,8 +105,8 @@ impl From<ArgMatches<'_>> for Args {
             pin_count: value_t!(matches, "pin_count", u32).unwrap(),
             pin_arrangement: value_t!(matches, "pin_arrangement", PinArrangement).unwrap(),
             auto_color: parse_auto_color(&matches),
-            foreground_colors: values_t!(matches.values_of("foreground_color"), RGB).unwrap(),
-            background_color: value_t!(matches, "background_color", RGB).unwrap(),
+            foreground_colors: values_t!(matches.values_of("foreground_color"), Rgb).unwrap(),
+            background_color: value_t!(matches, "background_color", Rgb).unwrap(),
             verbosity: matches.occurrences_of("verbose"),
         }
     }
@@ -133,8 +133,8 @@ mod test {
             pin_count: 200,
             pin_arrangement: PinArrangement::Perimeter,
             auto_color: None,
-            foreground_colors: vec![RGB::WHITE],
-            background_color: RGB::BLACK,
+            foreground_colors: vec![Rgb::WHITE],
+            background_color: Rgb::BLACK,
             verbosity: 0,
         }
     }
@@ -306,7 +306,7 @@ mod test {
                 "#0000FF",
             ])
             .into();
-        assert_eq!(RGB::new(0, 0, 255), args.background_color);
+        assert_eq!(Rgb::new(0, 0, 255), args.background_color);
     }
 
     #[test]
@@ -323,7 +323,7 @@ mod test {
             ])
             .into();
         assert_eq!(
-            vec![RGB::new(0, 0, 255), RGB::new(0, 255, 0)],
+            vec![Rgb::new(0, 0, 255), Rgb::new(0, 255, 0)],
             args.foreground_colors
         );
     }
@@ -367,8 +367,8 @@ mod test {
         assert_eq!(
             Some(AutoColor {
                 auto_fg_count: 2,
-                manual_background: Some(RGB::WHITE),
-                manual_foregrounds: vec![RGB::BLACK].into_iter().collect()
+                manual_background: Some(Rgb::WHITE),
+                manual_foregrounds: vec![Rgb::BLACK].into_iter().collect()
             }),
             args.auto_color
         );

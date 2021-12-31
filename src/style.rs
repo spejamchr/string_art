@@ -5,7 +5,7 @@ use crate::image::DynamicImage;
 use crate::image::Frame;
 use crate::imagery::LineSegment;
 use crate::imagery::RefImage;
-use crate::imagery::RGB;
+use crate::imagery::Rgb;
 use crate::optimum;
 use crate::serde::Serialize;
 use std::fs::File;
@@ -57,7 +57,7 @@ pub fn color_on_custom(pin_locations: Vec<Point>, args: Args, img: DynamicImage)
     data
 }
 
-fn log_on_add(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: RGB) {
+fn log_on_add(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: Rgb) {
     if args.verbosity > 0 {
         let rgb = rgb + args.background_color;
         println!(
@@ -67,7 +67,7 @@ fn log_on_add(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point
     }
 }
 
-fn log_on_sub(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: RGB) {
+fn log_on_sub(args: &Args, pin_len: usize, score_change: i64, a: Point, b: Point, rgb: Rgb) {
     if args.verbosity > 0 {
         let rgb = rgb + args.background_color;
         println!(
@@ -98,7 +98,7 @@ fn implementation(
     args: &Args,
     ref_image: &mut RefImage,
     pin_locations: &[Point],
-    rgbs: &[RGB],
+    rgbs: &[Rgb],
 ) -> (Vec<LineSegment>, i64, i64) {
     let mut line_segments: Vec<LineSegment> = Vec::new();
     let mut keep_adding = true;
@@ -129,13 +129,13 @@ fn implementation(
         cap -= 1;
 
         while keep_adding {
-            capture_frame(&mut possible_encoder, &line_segments, &args, width, height);
+            capture_frame(&mut possible_encoder, &line_segments, args, width, height);
 
             keep_adding = false;
 
             let points = optimum::find_best_points(
-                &pin_locations,
-                &ref_image,
+                pin_locations,
+                ref_image,
                 args.step_size,
                 args.string_alpha,
                 rgbs,
@@ -165,13 +165,13 @@ fn implementation(
         max_at_once = usize::max(1, (max_at_once as f64 * 0.9) as usize);
 
         while keep_removing {
-            capture_frame(&mut possible_encoder, &line_segments, &args, width, height);
+            capture_frame(&mut possible_encoder, &line_segments, args, width, height);
 
             keep_removing = false;
 
             let mut worst_points = optimum::find_worst_points(
                 &line_segments,
-                &ref_image,
+                ref_image,
                 args.step_size,
                 args.string_alpha,
                 // Find these more accurately by finding fewer at once. Saves time overall by
@@ -199,8 +199,7 @@ fn implementation(
     }
 
     // Pause on the last frame
-    (0..10)
-        .for_each(|_| capture_frame(&mut possible_encoder, &line_segments, &args, width, height));
+    (0..10).for_each(|_| capture_frame(&mut possible_encoder, &line_segments, args, width, height));
 
     let final_score = ref_image.score();
     if args.verbosity > 1 {

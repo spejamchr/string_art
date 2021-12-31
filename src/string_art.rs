@@ -13,7 +13,7 @@ pub fn create_string() {
     let width = image.width();
 
     let (foreground_colors, background_color) = match &args.auto_color {
-        Some(auto_color) => auto_color::fg_and_bg(&auto_color, &image),
+        Some(auto_color) => auto_color::fg_and_bg(auto_color, &image),
         None => (args.foreground_colors, args.background_color),
     };
 

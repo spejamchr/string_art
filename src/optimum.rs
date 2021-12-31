@@ -1,7 +1,7 @@
 use crate::geometry::Point;
 use crate::imagery::LineSegment;
 use crate::imagery::RefImage;
-use crate::imagery::RGB;
+use crate::imagery::Rgb;
 use crate::rayon::iter::IndexedParallelIterator;
 use crate::rayon::iter::IntoParallelRefIterator;
 use crate::rayon::iter::ParallelIterator;
@@ -11,7 +11,7 @@ pub fn find_best_points(
     ref_image: &RefImage,
     step_size: f64,
     string_alpha: f64,
-    rgbs: &[RGB],
+    rgbs: &[Rgb],
     max: usize,
 ) -> Vec<(LineSegment, i64)> {
     let mut lines = pins

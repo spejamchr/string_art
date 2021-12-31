@@ -1,10 +1,10 @@
 use crate::cli_app::AutoColor;
 use crate::image::DynamicImage;
-use crate::imagery::RGB;
+use crate::imagery::Rgb;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-pub fn fg_and_bg(auto_color: &AutoColor, image: &DynamicImage) -> (Vec<RGB>, RGB) {
+pub fn fg_and_bg(auto_color: &AutoColor, image: &DynamicImage) -> (Vec<Rgb>, Rgb) {
     let background_color = auto_color
         .manual_background
         .unwrap_or_else(|| calc_bg(image, &auto_color.manual_foregrounds));
@@ -21,10 +21,10 @@ pub fn fg_and_bg(auto_color: &AutoColor, image: &DynamicImage) -> (Vec<RGB>, RGB
 
 fn calc_fgs(
     image: &DynamicImage,
-    foreground_colors: &HashSet<RGB>,
-    background_color: &RGB,
+    foreground_colors: &HashSet<Rgb>,
+    background_color: &Rgb,
     limit: usize,
-) -> Vec<RGB> {
+) -> Vec<Rgb> {
     let mut rgbs = rank_colors(image).into_iter().collect::<Vec<_>>();
     rgbs.sort_unstable_by_key(|(_, c)| *c);
     rgbs.reverse();
@@ -37,7 +37,7 @@ fn calc_fgs(
         .collect()
 }
 
-fn calc_bg(image: &DynamicImage, foreground_colors: &HashSet<RGB>) -> RGB {
+fn calc_bg(image: &DynamicImage, foreground_colors: &HashSet<Rgb>) -> Rgb {
     rank_colors(image)
         .into_iter()
         .filter(|(rgb, _)| !foreground_colors.contains(rgb))
@@ -46,7 +46,7 @@ fn calc_bg(image: &DynamicImage, foreground_colors: &HashSet<RGB>) -> RGB {
         .unwrap()
 }
 
-fn rank_colors(image: &DynamicImage) -> HashMap<RGB, usize> {
+fn rank_colors(image: &DynamicImage) -> HashMap<Rgb, usize> {
     image_rgbs(&image.adjust_contrast(1500.0))
         .into_iter()
         .fold(HashMap::new(), |mut h, p| {
@@ -57,13 +57,13 @@ fn rank_colors(image: &DynamicImage) -> HashMap<RGB, usize> {
         })
 }
 
-fn image_rgbs(image: &DynamicImage) -> Vec<RGB> {
+fn image_rgbs(image: &DynamicImage) -> Vec<Rgb> {
     image
         .adjust_contrast(1500.0)
         .to_rgb8()
         .pixels()
         .map(|p| p.0)
-        .map(RGB::from)
+        .map(Rgb::from)
         .collect()
 }
 
@@ -71,7 +71,7 @@ fn image_rgbs(image: &DynamicImage) -> Vec<RGB> {
 mod test {
     use super::*;
 
-    const BLUE: RGB = RGB { r: 0, g: 0, b: 255 };
+    const BLUE: Rgb = Rgb { r: 0, g: 0, b: 255 };
 
     fn img() -> DynamicImage {
         let mut i = DynamicImage::new_rgb8(2, 2).to_rgb8();
@@ -100,8 +100,8 @@ mod test {
         image::DynamicImage::ImageRgb8(i)
     }
 
-    fn p(r: u32, g: u32, b: u32) -> RGB {
-        RGB::new(r, g, b)
+    fn p(r: u32, g: u32, b: u32) -> Rgb {
+        Rgb::new(r, g, b)
     }
 
     #[test]
@@ -116,15 +116,15 @@ mod test {
     fn test_complex_image_rgbs() {
         assert_eq!(
             vec![
-                RGB::WHITE,
-                RGB::WHITE,
-                RGB::WHITE,
-                RGB::WHITE,
+                Rgb::WHITE,
+                Rgb::WHITE,
+                Rgb::WHITE,
+                Rgb::WHITE,
                 BLUE,
                 BLUE,
                 BLUE,
-                RGB::BLACK,
-                RGB::BLACK
+                Rgb::BLACK,
+                Rgb::BLACK
             ],
             image_rgbs(&complex_img())
         );
@@ -151,25 +151,25 @@ mod test {
 
     #[test]
     fn test_rank_colors_complex() {
-        let rgbs = vec![(RGB::WHITE, 4), (BLUE, 3), (RGB::BLACK, 2)];
+        let rgbs = vec![(Rgb::WHITE, 4), (BLUE, 3), (Rgb::BLACK, 2)];
         let map: HashMap<_, _> = rgbs.into_iter().collect();
         assert_eq!(map, rank_colors(&complex_img()));
     }
 
     #[test]
     fn test_calc_bg_all_black() {
-        assert_eq!(RGB::BLACK, calc_bg(&black_img(), &HashSet::new()));
+        assert_eq!(Rgb::BLACK, calc_bg(&black_img(), &HashSet::new()));
     }
 
     #[test]
     fn test_calc_bg_complex() {
-        assert_eq!(RGB::WHITE, calc_bg(&complex_img(), &HashSet::new()));
+        assert_eq!(Rgb::WHITE, calc_bg(&complex_img(), &HashSet::new()));
     }
 
     fn ac(
         auto_fg_count: usize,
-        manual_foregrounds: Vec<RGB>,
-        manual_background: Option<RGB>,
+        manual_foregrounds: Vec<Rgb>,
+        manual_background: Option<Rgb>,
     ) -> AutoColor {
         AutoColor {
             auto_fg_count,
@@ -181,7 +181,7 @@ mod test {
     #[test]
     fn test_fg_and_bg_1_fg() {
         assert_eq!(
-            (vec![BLUE], RGB::WHITE),
+            (vec![BLUE], Rgb::WHITE),
             fg_and_bg(&ac(1, Vec::new(), None), &complex_img())
         );
     }
@@ -189,7 +189,7 @@ mod test {
     #[test]
     fn test_fg_and_bg_2_fgs() {
         assert_eq!(
-            (vec![BLUE, RGB::BLACK], RGB::WHITE),
+            (vec![BLUE, Rgb::BLACK], Rgb::WHITE),
             fg_and_bg(&ac(2, Vec::new(), None), &complex_img())
         );
     }
@@ -197,7 +197,7 @@ mod test {
     #[test]
     fn test_fg_and_bg_excess_fgs() {
         assert_eq!(
-            (vec![BLUE, RGB::BLACK], RGB::WHITE),
+            (vec![BLUE, Rgb::BLACK], Rgb::WHITE),
             fg_and_bg(&ac(20, Vec::new(), None), &complex_img())
         );
     }
@@ -205,7 +205,7 @@ mod test {
     #[test]
     fn test_fg_and_bg_provided_bg() {
         assert_eq!(
-            (vec![RGB::WHITE], BLUE),
+            (vec![Rgb::WHITE], BLUE),
             fg_and_bg(&ac(1, Vec::new(), Some(BLUE)), &complex_img())
         );
     }
@@ -213,16 +213,16 @@ mod test {
     #[test]
     fn test_fg_and_bg_provided_fg() {
         assert_eq!(
-            (vec![RGB::BLACK, RGB::WHITE], BLUE),
-            fg_and_bg(&ac(1, vec![RGB::WHITE], None), &complex_img())
+            (vec![Rgb::BLACK, Rgb::WHITE], BLUE),
+            fg_and_bg(&ac(1, vec![Rgb::WHITE], None), &complex_img())
         );
     }
 
     #[test]
     fn test_fg_and_bg_provided_fg_and_bg() {
         assert_eq!(
-            (vec![BLUE, RGB::WHITE], RGB::BLACK),
-            fg_and_bg(&ac(1, vec![RGB::WHITE], Some(RGB::BLACK)), &complex_img())
+            (vec![BLUE, Rgb::WHITE], Rgb::BLACK),
+            fg_and_bg(&ac(1, vec![Rgb::WHITE], Some(Rgb::BLACK)), &complex_img())
         );
     }
 }

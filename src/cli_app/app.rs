@@ -1,7 +1,7 @@
 use crate::clap::app_from_crate;
 use crate::clap::App;
 use crate::clap::Arg;
-use crate::imagery::RGB;
+use crate::imagery::Rgb;
 use crate::util;
 
 fn valid_type<T: std::str::FromStr>(name: &str) -> impl Fn(String) -> Result<(), String> {
@@ -116,7 +116,7 @@ pub fn create() -> App<'static, 'static> {
         .long("background-color")
         .takes_value(true)
         .default_value("#000000")
-        .validator(valid_type::<RGB>("Hex Code"))
+        .validator(valid_type::<Rgb>("Hex Code"))
         .help("An RGB color in hex format `#RRGGBB` specifying the color of the background.")
     )
     .arg(Arg::with_name("foreground_color")
@@ -126,7 +126,7 @@ pub fn create() -> App<'static, 'static> {
         .takes_value(true)
         .multiple(true)
         .default_value("#FFFFFF")
-        .validator(valid_type::<RGB>("Hex Code"))
+        .validator(valid_type::<Rgb>("Hex Code"))
         .help("An RGB color in hex format `#RRGGBB` specifying the color of a string to use. Can be specified multiple times to specify multiple colors of strings.")
     )
     .arg(Arg::with_name("auto_color")
