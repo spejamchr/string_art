@@ -106,8 +106,8 @@ fn circle(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
                 ((radius * (step as f64 * step_size).sin()).round() + center_y) as u32,
             )
         })
-        .collect::<HashSet<_>>() // remove duplicates
-        .into_iter()
+        // .collect::<HashSet<_>>() // remove duplicates
+        // .into_iter()
         .collect()
 }
 
