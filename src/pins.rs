@@ -99,16 +99,16 @@ fn circle(desired_count: u32, width: u32, height: u32) -> Vec<Point> {
     let center_y = (height - 1) as f64 / 2.0;
     let radius = f64::min(center_x, center_y);
     let step_size = std::f64::consts::PI * 2.0 / desired_count as f64;
-    (0..desired_count)
-        .map(|step| {
-            P(
-                ((radius * (step as f64 * step_size).cos()).round() + center_x) as u32,
-                ((radius * (step as f64 * step_size).sin()).round() + center_y) as u32,
-            )
-        })
-        // .collect::<HashSet<_>>() // remove duplicates
-        // .into_iter()
-        .collect()
+    (0..desired_count).fold(Vec::new(), |mut points, step| {
+        let point = P(
+            ((radius * (step as f64 * step_size).cos()).round() + center_x) as u32,
+            ((radius * (step as f64 * step_size).sin()).round() + center_y) as u32,
+        );
+        if points.iter().all(|p| p != &point) {
+            points.push(point)
+        }
+        points
+    })
 }
 
 #[cfg(test)]
