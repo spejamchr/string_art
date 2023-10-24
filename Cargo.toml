@@ -11,7 +11,7 @@ description = "Transform an image into string art"
 image = "0.24"
 threadpool = "1.8"
 rand = "0.8"
-clap = {version = "~2.33.0", features = ["yaml"]}
+clap = {version = "~2.33.0"}
 rayon = "1.8.0"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
