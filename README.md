@@ -2,7 +2,7 @@
   <img 
     src="examples/elephant.png" 
     alt="String art rendering of an elephant"
-    height=300 
+    height=250 
   />
 </p>
 
@@ -36,12 +36,12 @@ Use `--help` or `-h` to see the full usage.
   <img 
     src="examples/fiber.jpg"
     alt="Reference photo of red yarn on skein"
-    height=300
+    height=250
   />
   <img 
     src="examples/fiber-string-wob.png"
     alt="String art rendering in white string on a black background of yarn on skein"
-    height=300
+    height=250
   />
 </p>
 
@@ -66,17 +66,17 @@ This also uses the `--gif-filepath` options to create a GIF of the creation proc
   <img 
     src="examples/fiber.jpg"
     alt="Reference photo of red yarn on skein"
-    height=300
+    height=250
   />
   <img 
     src="examples/fiber-string-color.png"
     alt="String art rendering in red & white string on a black background of yarn on skein"
-    height=300
+    height=250
   />
   <img 
     src="examples/fiber-string-color.gif"
     alt="Animation of string art construction"
-    height=300
+    height=250
   />
 </p>
 
