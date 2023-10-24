@@ -1,7 +1,6 @@
 use crate::auto_color;
 use crate::cli_app;
 use crate::geometry::Point;
-use crate::image::GenericImageView;
 use crate::pins;
 use crate::style;
 

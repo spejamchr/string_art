@@ -2,13 +2,13 @@
 name = "string_art"
 version = "0.1.0"
 authors = ["Spencer Christiansen <jc.spencer92@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "Transform an image into string art"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-image = "0.23"
+image = "0.24"
 threadpool = "1.7"
 rand = "0.6"
 clap = {version = "~2.33.0", features = ["yaml"]}

@@ -1,6 +1,6 @@
 use crate::cli_app::Args;
 use crate::geometry::Point;
-use crate::image::gif::GifEncoder;
+use crate::image::codecs::gif::GifEncoder;
 use crate::image::DynamicImage;
 use crate::image::Frame;
 use crate::imagery::LineSegment;
@@ -117,7 +117,9 @@ fn implementation(
         args.gif_filepath.as_ref().map(|gif_filepath| {
             let file_out = File::create(gif_filepath).unwrap();
             let mut encoder = GifEncoder::new_with_speed(file_out, 10);
-            encoder.set_repeat(image::gif::Repeat::Infinite).unwrap();
+            encoder
+                .set_repeat(image::codecs::gif::Repeat::Infinite)
+                .unwrap();
             encoder
         });
 

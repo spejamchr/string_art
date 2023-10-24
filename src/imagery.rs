@@ -1,6 +1,5 @@
 use crate::geometry::{Line, Point};
 use crate::image::DynamicImage;
-use crate::image::GenericImageView;
 use crate::serde::Serialize;
 use crate::style::Data;
 use crate::util;
