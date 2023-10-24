@@ -9,7 +9,7 @@ description = "Transform an image into string art"
 
 [dependencies]
 image = "0.24"
-threadpool = "1.7"
+threadpool = "1.8"
 rand = "0.6"
 clap = {version = "~2.33.0", features = ["yaml"]}
 rayon = "1.5.0"
