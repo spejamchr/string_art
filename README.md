@@ -99,7 +99,7 @@ string_art \
 ### The Elephant: Auto-pick the colors
 
 ```bash
-./target/release/string_art \
+string_art \
     --input-filepath ./examples/elephant.jpg \
     --output-filepath ./examples/elephant.png \
     --data-filepath ./examples/elephant.json \
