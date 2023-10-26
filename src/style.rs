@@ -1,7 +1,6 @@
 use crate::cli_app::Args;
 use crate::geometry::Point;
 use crate::image::codecs::gif::GifEncoder;
-use crate::image::DynamicImage;
 use crate::image::Frame;
 use crate::imagery::LineSegment;
 use crate::imagery::RefImage;
@@ -23,9 +22,11 @@ pub struct Data {
     pub line_segments: Vec<LineSegment>,
 }
 
-pub fn color_on_custom(pin_locations: Vec<Point>, args: Args, img: DynamicImage) -> Data {
+pub fn color_on_custom(pin_locations: Vec<Point>, args: Args) -> Data {
     let background_color = args.background_color;
-    let mut ref_image = RefImage::from(img).negated().add_rgb(background_color);
+    let mut ref_image = RefImage::from(&args.image)
+        .negated()
+        .add_rgb(background_color);
     let colors = args
         .foreground_colors
         .iter()

@@ -1,16 +1,101 @@
-use crate::clap::value_t;
-use crate::clap::values_t;
-use crate::clap::ArgMatches;
-use crate::image::io::Reader as ImageReader;
-use crate::imagery::Rgb;
-use crate::pins::PinArrangement;
-use crate::serde::Serialize;
-use crate::util;
-use std::collections::HashSet;
+use crate::{
+    auto_color::{fg_and_bg, AutoColor},
+    imagery::Rgb,
+    pins::PinArrangement,
+};
+use clap::{builder::ArgPredicate, error::ErrorKind, Parser};
+use image::io::Reader as ImageReader;
+use serde::Serialize;
+use std::{collections::HashSet, str::FromStr};
 
-mod app;
+const DEFAULT_BG: &str = "#000000";
+const DEFAULT_FG: &str = "#FFFFFF";
 
 /// The validated arguments passed in by the user
+#[derive(Debug, Clone, PartialEq, Serialize, Parser)]
+#[command(version, about, long_about = None, max_term_width(100))]
+pub struct Cli {
+    /// Path to the image that will be rendered with strings.
+    #[arg(short = 'i', long)]
+    pub input_filepath: String,
+
+    /// Location to save generated string image.
+    #[arg(short = 'o', long)]
+    pub output_filepath: Option<String>,
+
+    /// Location to save image of pin locations.
+    #[arg(short = 'p', long)]
+    pub pins_filepath: Option<String>,
+
+    /// The script will write operation information as a JSON file if this filepath is given. The
+    /// operation information includes argument values, starting and ending image scores, pin
+    /// locations, and a list of line segments between pins that form the final image.
+    #[arg(short = 'd', long)]
+    pub data_filepath: Option<String>,
+
+    /// Location to save a gif of the creation process.
+    #[arg(short = 'g', long)]
+    pub gif_filepath: Option<String>,
+
+    /// The maximum number of strings in the finished work.
+    #[arg(short = 'm', long, default_value(usize::MAX.to_string()), hide_default_value(true))]
+    pub max_strings: usize,
+
+    /// Used when calculating a string's antialiasing. Smaller values -> finer antialiasing.
+    #[arg(short = 's', long, default_value("1.0"))]
+    pub step_size: f64,
+
+    /// How opaque or thin each string is. `1` is entirely opaque, `0` is invisible.
+    #[arg(short = 'a', long, default_value("0.2"))]
+    pub string_alpha: f64,
+
+    /// How many pins should be used in creating the image (approximately).
+    #[arg(short = 'c', long, default_value("200"))]
+    pub pin_count: u32,
+
+    /// Should the pins be arranged on the image's perimeter, or in a grid across the entire image,
+    /// or in the largest possible centered circle, or scattered randomly?
+    #[arg(short = 'r', long, default_value("perimeter"))]
+    pub pin_arrangement: PinArrangement,
+
+    /// An RGB color in hex format `#RRGGBB` specifying the color of the background.
+    #[arg(
+        short = 'b',
+        long,
+        default_value(DEFAULT_BG),
+        default_value_if("auto_color", ArgPredicate::IsPresent, None)
+    )]
+    pub background_color: Option<Rgb>,
+
+    /// An RGB color in hex format `#RRGGBB` specifying the color of a string to use. Can be
+    /// specified multiple times to specify multiple colors of strings.
+    #[arg(
+        short = 'f',
+        long,
+        default_value(DEFAULT_FG),
+        default_value_if("auto_color", ArgPredicate::IsPresent, None)
+    )]
+    pub foreground_color: Option<Vec<Rgb>>,
+
+    /// Draw with this many automatically chosen foreground colors on an automatically chosen
+    /// background color.
+    ///
+    /// If --background-color is provided, use that.
+    ///
+    /// If --foreground-color is provided, use that in addition to this many additional
+    /// automatically chosen foreground colors.
+    #[arg(short = 'u', long)]
+    pub auto_color: Option<usize>,
+
+    /// Output debugging messages. Pass multiple times for more verbose logging.
+    #[arg(short = 'v', long, action(clap::ArgAction::Count))]
+    pub verbose: u8,
+}
+
+pub fn parse_args() -> Args {
+    Cli::parse().into()
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Args {
     pub input_filepath: String,
@@ -24,90 +109,74 @@ pub struct Args {
     pub pin_count: u32,
     pub pin_arrangement: PinArrangement,
     pub auto_color: Option<AutoColor>,
-    pub foreground_colors: Vec<Rgb>,
+    pub foreground_colors: HashSet<Rgb>,
     pub background_color: Rgb,
-    pub verbosity: u64,
+    pub verbosity: u8,
+    #[serde(skip)]
+    pub image: image::DynamicImage,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct AutoColor {
-    pub auto_fg_count: usize,
-    pub manual_foregrounds: HashSet<Rgb>,
-    pub manual_background: Option<Rgb>,
-}
-
-fn parse_manual_background(matches: &ArgMatches) -> Option<Rgb> {
-    matches
-        .value_of("background_color")
-        .and_then(util::from_bool(
-            matches.occurrences_of("background_color") > 0,
-        ))
-        .map(|_| value_t!(matches, "background_color", Rgb).unwrap())
-}
-
-fn parse_manual_foregrounds(matches: &ArgMatches) -> HashSet<Rgb> {
-    matches
-        .values_of("foreground_color")
-        .and_then(util::from_bool(
-            matches.occurrences_of("foreground_color") > 0,
-        ))
-        .and_then(|_| values_t!(matches, "foreground_color", Rgb).ok())
-        .map(|v| v.into_iter().collect())
-        .unwrap_or_else(HashSet::new)
-}
-
-fn parse_auto_color(matches: &ArgMatches) -> Option<AutoColor> {
-    value_t!(matches, "auto_color", usize)
-        .ok()
-        .map(|count| AutoColor {
-            auto_fg_count: count,
-            manual_foregrounds: parse_manual_foregrounds(matches),
-            manual_background: parse_manual_background(matches),
-        })
-}
-
-pub fn parse_args() -> Args {
-    app::create().get_matches().into()
-}
-
-impl Args {
+impl Cli {
     pub fn image(&self) -> image::DynamicImage {
         ImageReader::open(&self.input_filepath)
             .unwrap_or_else(|_| {
-                clap::Error::value_validation_auto(format!(
-                    "The input filepath '{}' could not be opened",
-                    &self.input_filepath
-                ))
-                .exit()
+                clap::Command::new("input_filepath")
+                    .error(
+                        ErrorKind::Io,
+                        format!(
+                            "The input filepath '{}' could not be opened",
+                            &self.input_filepath
+                        ),
+                    )
+                    .exit()
             })
             .decode()
             .unwrap_or_else(|_| {
-                clap::Error::value_validation_auto(format!(
-                    "The input filepath '{}' could not be decoded",
-                    &self.input_filepath
-                ))
-                .exit()
+                clap::Command::new("input_filepath")
+                    .error(
+                        ErrorKind::Io,
+                        format!(
+                            "The input filepath '{}' could not be decoded",
+                            &self.input_filepath
+                        ),
+                    )
+                    .exit()
             })
     }
 }
 
-impl From<ArgMatches<'_>> for Args {
-    fn from(matches: ArgMatches) -> Self {
+impl From<Cli> for Args {
+    fn from(cli: Cli) -> Self {
+        let image = cli.image();
+        let auto_color = cli.auto_color.map(|_| AutoColor::from(&cli));
+        let (foreground_colors, background_color) = match &auto_color {
+            Some(ac) => fg_and_bg(ac, &image),
+            None => (
+                cli.foreground_color
+                    .unwrap_or_else(|| vec![Rgb::from_str(DEFAULT_FG).unwrap()])
+                    .into_iter()
+                    .collect(),
+                cli.background_color
+                    .unwrap_or_else(|| Rgb::from_str(DEFAULT_BG).unwrap()),
+            ),
+        };
+
         Self {
-            input_filepath: value_t!(matches, "input_filepath", String).unwrap(),
-            output_filepath: value_t!(matches, "output_filepath", String).ok(),
-            pins_filepath: value_t!(matches, "pins_filepath", String).ok(),
-            data_filepath: value_t!(matches, "data_filepath", String).ok(),
-            gif_filepath: value_t!(matches, "gif_filepath", String).ok(),
-            max_strings: value_t!(matches, "max_strings", usize).unwrap_or(usize::MAX),
-            step_size: value_t!(matches, "step_size", f64).unwrap(),
-            string_alpha: value_t!(matches, "string_alpha", f64).unwrap(),
-            pin_count: value_t!(matches, "pin_count", u32).unwrap(),
-            pin_arrangement: value_t!(matches, "pin_arrangement", PinArrangement).unwrap(),
-            auto_color: parse_auto_color(&matches),
-            foreground_colors: values_t!(matches.values_of("foreground_color"), Rgb).unwrap(),
-            background_color: value_t!(matches, "background_color", Rgb).unwrap(),
-            verbosity: matches.occurrences_of("verbose"),
+            input_filepath: cli.input_filepath,
+            output_filepath: cli.output_filepath,
+            pins_filepath: cli.pins_filepath,
+            data_filepath: cli.data_filepath,
+            gif_filepath: cli.gif_filepath,
+            max_strings: cli.max_strings,
+            step_size: cli.step_size,
+            string_alpha: cli.string_alpha,
+            pin_count: cli.pin_count,
+            pin_arrangement: cli.pin_arrangement,
+            auto_color,
+            foreground_colors,
+            background_color,
+            verbosity: cli.verbose,
+            image,
         }
     }
 }
@@ -120,271 +189,232 @@ mod test {
         "test.png".to_owned()
     }
 
-    fn default_args() -> Args {
-        Args {
-            input_filepath: input_filepath(),
-            output_filepath: None,
-            pins_filepath: None,
-            data_filepath: None,
-            gif_filepath: None,
-            max_strings: usize::MAX,
-            step_size: 1.0,
-            string_alpha: 0.2,
-            pin_count: 200,
-            pin_arrangement: PinArrangement::Perimeter,
-            auto_color: None,
-            foreground_colors: vec![Rgb::WHITE],
-            background_color: Rgb::BLACK,
-            verbosity: 0,
-        }
-    }
-
     #[test]
     fn test_errors_without_input_filepath() {
-        let matches: Result<_, _> = app::create().get_matches_from_safe(vec!["string_art"]);
+        let matches: Result<_, _> = Cli::try_parse_from(vec!["string_art"]);
         assert!(matches.is_err());
     }
 
     #[test]
     fn test_no_error_with_input_filepath() {
         let matches: Result<_, _> =
-            app::create().get_matches_from_safe(vec!["string_art", "--input-filepath", "test.png"]);
+            Cli::try_parse_from(vec!["string_art", "--input-filepath", &input_filepath()]);
         assert!(matches.is_ok());
-        let _args: Result<Args, _> = matches.map(|a| a.into());
-    }
-
-    #[test]
-    fn test_defaults() {
-        let args: Args = app::create()
-            .get_matches_from(vec!["string_art", "--input-filepath", &input_filepath()])
-            .into();
-        assert_eq!(default_args(), args);
     }
 
     #[test]
     fn test_output_filepath() {
         let output_filepath = "output.png".to_owned();
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--output-filepath",
-                &output_filepath,
-            ])
-            .into();
-        assert_eq!(Some(output_filepath), args.output_filepath);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--output-filepath",
+            &output_filepath,
+        ]);
+        assert_eq!(Some(output_filepath), cli.output_filepath);
     }
 
     #[test]
     fn test_pins_filepath() {
         let pins_filepath = "pins.png".to_owned();
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--pins-filepath",
-                &pins_filepath,
-            ])
-            .into();
-        assert_eq!(Some(pins_filepath), args.pins_filepath);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--pins-filepath",
+            &pins_filepath,
+        ]);
+        assert_eq!(Some(pins_filepath), cli.pins_filepath);
     }
 
     #[test]
     fn test_data_filepath() {
         let data_filepath = "data.json".to_owned();
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--data-filepath",
-                &data_filepath,
-            ])
-            .into();
-        assert_eq!(Some(data_filepath), args.data_filepath);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--data-filepath",
+            &data_filepath,
+        ]);
+        assert_eq!(Some(data_filepath), cli.data_filepath);
     }
 
     #[test]
     fn test_gif_filepath() {
         let gif_filepath = "test.gif".to_owned();
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--gif-filepath",
-                &gif_filepath,
-            ])
-            .into();
-        assert_eq!(Some(gif_filepath), args.gif_filepath);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--gif-filepath",
+            &gif_filepath,
+        ]);
+        assert_eq!(Some(gif_filepath), cli.gif_filepath);
     }
 
     #[test]
     fn test_max_strings() {
         let max_strings = 10;
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--max-strings",
-                &max_strings.to_string(),
-            ])
-            .into();
-        assert_eq!(max_strings, args.max_strings);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--max-strings",
+            &max_strings.to_string(),
+        ]);
+        assert_eq!(max_strings, cli.max_strings);
     }
 
     #[test]
     fn test_step_size() {
         let step_size = 0.83;
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--step-size",
-                &step_size.to_string(),
-            ])
-            .into();
-        assert_eq!(step_size, args.step_size);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--step-size",
+            &step_size.to_string(),
+        ]);
+        assert_eq!(step_size, cli.step_size);
     }
 
     #[test]
     fn test_string_alpha() {
         let string_alpha = 0.83;
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--string-alpha",
-                &string_alpha.to_string(),
-            ])
-            .into();
-        assert_eq!(string_alpha, args.string_alpha);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--string-alpha",
+            &string_alpha.to_string(),
+        ]);
+        assert_eq!(string_alpha, cli.string_alpha);
     }
 
     #[test]
     fn test_pin_count() {
         let pin_count = 12;
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--pin-count",
-                &pin_count.to_string(),
-            ])
-            .into();
-        assert_eq!(pin_count, args.pin_count);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--pin-count",
+            &pin_count.to_string(),
+        ]);
+        assert_eq!(pin_count, cli.pin_count);
     }
 
     #[test]
     fn test_pin_arrangement() {
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--pin-arrangement",
-                "random",
-            ])
-            .into();
-        assert_eq!(PinArrangement::Random, args.pin_arrangement);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--pin-arrangement",
+            "random",
+        ]);
+        assert_eq!(PinArrangement::Random, cli.pin_arrangement);
     }
 
     #[test]
     fn test_background_color() {
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--background-color",
-                "#0000FF",
-            ])
-            .into();
-        assert_eq!(Rgb::new(0, 0, 255), args.background_color);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--background-color",
+            "#0000FF",
+        ]);
+        assert_eq!(Some(Rgb::new(0, 0, 255)), cli.background_color);
     }
 
     #[test]
     fn test_foreground_color() {
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--foreground-color",
-                "#0000FF",
-                "--foreground-color",
-                "#00FF00",
-            ])
-            .into();
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--foreground-color",
+            "#0000FF",
+            "--foreground-color",
+            "#00FF00",
+        ]);
         assert_eq!(
-            vec![Rgb::new(0, 0, 255), Rgb::new(0, 255, 0)],
-            args.foreground_colors
+            Some(vec![Rgb::new(0, 0, 255), Rgb::new(0, 255, 0)]),
+            cli.foreground_color
         );
     }
 
     #[test]
     fn test_auto_color() {
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--auto-color",
-                "2",
-            ])
-            .into();
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--auto-color",
+            "2",
+        ]);
         assert_eq!(
-            Some(AutoColor {
+            AutoColor {
                 auto_fg_count: 2,
                 manual_background: None,
                 manual_foregrounds: HashSet::new()
-            }),
-            args.auto_color
+            },
+            AutoColor::from(&cli)
         );
     }
 
     #[test]
-    fn test_auto_color_with_manual_fg_and_bg() {
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--auto-color",
-                "2",
-                "--background-color",
-                "#FFFFFF",
-                "--foreground-color",
-                "#000000",
-            ])
-            .into();
+    fn test_two_foreground_colors() {
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--foreground-color",
+            "#FFFFFF",
+            "--foreground-color",
+            "#FF0000",
+        ]);
         assert_eq!(
-            Some(AutoColor {
+            Some(vec![Rgb::WHITE, Rgb { r: 255, g: 0, b: 0 }]),
+            cli.foreground_color
+        )
+    }
+
+    #[test]
+    fn test_auto_color_with_manual_fg_and_bg() {
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--auto-color",
+            "2",
+            "--background-color",
+            "#FFFFFF",
+            "--foreground-color",
+            "#000000",
+        ]);
+        assert_eq!(
+            AutoColor {
                 auto_fg_count: 2,
                 manual_background: Some(Rgb::WHITE),
                 manual_foregrounds: vec![Rgb::BLACK].into_iter().collect()
-            }),
-            args.auto_color
+            },
+            AutoColor::from(&cli)
         );
     }
 
     #[test]
     fn test_verbosity() {
-        let args: Args = app::create()
-            .get_matches_from(vec![
-                "string_art",
-                "--input-filepath",
-                &input_filepath(),
-                "--verbose",
-                "--verbose",
-            ])
-            .into();
-        assert_eq!(2, args.verbosity);
+        let cli = Cli::parse_from(vec![
+            "string_art",
+            "--input-filepath",
+            &input_filepath(),
+            "--verbose",
+            "--verbose",
+        ]);
+        assert_eq!(2, cli.verbose);
     }
 }

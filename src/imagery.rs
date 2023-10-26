@@ -271,8 +271,8 @@ impl<T: Into<PixLine> + Copy> std::convert::From<(&Vec<T>, u32, u32)> for RefIma
     }
 }
 
-impl std::convert::From<DynamicImage> for RefImage {
-    fn from(image: DynamicImage) -> Self {
+impl std::convert::From<&DynamicImage> for RefImage {
+    fn from(image: &DynamicImage) -> Self {
         let mut ref_image = Self::new(image.width(), image.height());
         image.to_rgb8().enumerate_pixels().for_each(|(x, y, p)| {
             ref_image[(x, y)] = Rgb::from(p.0);
