@@ -1,6 +1,6 @@
 <p align="center">
   <img 
-    src="examples/elephant.png" 
+    src="examples/elephant-string.jpg" 
     alt="String art rendering of an elephant"
     height=250 
   />
@@ -39,7 +39,7 @@ Use `--help` or `-h` to see the full usage.
     height=250
   />
   <img 
-    src="examples/fiber-string-wob.png"
+    src="examples/fiber-string-wob.jpg"
     alt="String art rendering in white string on a black background of yarn on skein"
     height=250
   />
@@ -48,7 +48,7 @@ Use `--help` or `-h` to see the full usage.
 ```bash
 string_art \
     --input-filepath ./examples/fiber.jpg \
-    --output-filepath ./examples/fiber-string-wob.png \
+    --output-filepath ./examples/fiber-string-wob.jpg \
     --data-filepath ./examples/fiber-string-wob.json \
     --pin-arrangement perimeter \
     --pin-count 300 \
@@ -69,7 +69,7 @@ This also uses the `--gif-filepath` options to create a GIF of the creation proc
     height=250
   />
   <img 
-    src="examples/fiber-string-color.png"
+    src="examples/fiber-string-color.jpg"
     alt="String art rendering in red & white string on a black background of yarn on skein"
     height=250
   />
@@ -83,7 +83,7 @@ This also uses the `--gif-filepath` options to create a GIF of the creation proc
 ```bash
 string_art \
     --input-filepath ./examples/fiber.jpg \
-    --output-filepath ./examples/fiber-string-color.png \
+    --output-filepath ./examples/fiber-string-color.jpg \
     --data-filepath ./examples/fiber-string-color.json \
     --gif-filepath ./examples/fiber-string-color.gif \
     --pin-arrangement circle \
@@ -101,7 +101,7 @@ string_art \
 ```bash
 string_art \
     --input-filepath ./examples/elephant.jpg \
-    --output-filepath ./examples/elephant.png \
+    --output-filepath ./examples/elephant-string.jpg \
     --data-filepath ./examples/elephant.json \
     --pin-arrangement circle \
     --pin-count 400 \
